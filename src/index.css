@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  @apply bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100 min-h-screen;
+}
+
+.segmented-custom .ant-segmented-item {
+  @apply bg-transparent text-gray-500 dark:text-gray-300 transition-all px-2 py-1;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: unset;
+  border-radius: 16px !important;
+}
+.segmented-custom .ant-segmented-item-selected {
+  @apply bg-[#FF566933] text-[#FF5669] shadow-none;
+  border-radius: 16px !important;
+  white-space: nowrap;
+}
+
+.ant-select-selector {
+  border-radius: 16px !important;
+}
