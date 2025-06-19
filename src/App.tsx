@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Button, Input, Table, Tag, Avatar, Dropdown, Space, ConfigProvider, theme as antdTheme, Segmented, Select, Modal, Upload, message, Card, Collapse, Tree, Skeleton, DatePicker } from 'antd';
-import { PlusOutlined, UserOutlined, BellOutlined, FileTextOutlined, SettingOutlined, LogoutOutlined, BulbOutlined, BulbFilled, ArrowUpOutlined, PaperClipOutlined, CloseOutlined, MessageOutlined, ArrowRightOutlined, FolderOutlined, DownOutlined, RightOutlined, CalendarOutlined, TagsOutlined } from '@ant-design/icons';
+import { PlusOutlined, UserOutlined, BellOutlined, FileTextOutlined, SettingOutlined, LogoutOutlined, BulbOutlined, BulbFilled, ArrowUpOutlined, PaperClipOutlined, CloseOutlined, MessageOutlined, ArrowRightOutlined, FolderOutlined, DownOutlined, RightOutlined, CalendarOutlined, TagsOutlined, FileZipOutlined, FolderOpenOutlined } from '@ant-design/icons';
 import type { MenuInfo } from 'rc-menu/lib/interface';
 import dayjs from 'dayjs';
+import JSZip from 'jszip';
+import type { DataNode } from 'antd/es/tree';
 
 const { Header, Sider, Content } = Layout;
 
@@ -70,10 +72,11 @@ const userMenuItems = [
 
 const attachmentMenuItems = [
   { key: 'single', label: 'Single upload' },
-  { key: 'upload', label: 'Bulk upload' },
+  { key: 'bulk-zip', label: (<span><FileZipOutlined style={{ marginRight: 6 }} />Bulk upload</span>) },
   { key: 'docusign', label: 'Import from Docusign', disabled: true },
   { type: 'divider' as const },
-  { key: 'signed-test', label: 'Signed (test)' }
+  { key: 'signed-test', label: 'Signed (test)' },
+  { key: 'draft-test', label: 'Draft (test)' }
 ];
 
 const statusFilters = ['All', 'Active', 'Pending', 'Expired'];
@@ -558,6 +561,228 @@ const Spinner = () => (
   </span>
 );
 
+// Add the full text of the draft test document
+const DRAFT_TEST_DOC = `SALES AGREEMENT - DRAFT VERSION 3.2
+**CONFIDENTIAL - INTERNAL REVIEW ONLY**
+
+Document Status: IN PROGRESS - LEGAL REVIEW PENDING
+Last Modified: June 12, 2025, 4:47 PM EST
+Modified By: Sandra Mitchell, Legal Counsel (Wayne Enterprises)
+Next Review Meeting: June 19, 2025, 2:00 PM EST
+
+[ATTORNEY NOTES: Need to finalize delivery terms in Section 6. Confirm liability caps with Risk Management. JI requesting changes to payment schedule - under review. - SM]
+
+This Sales Agreement ("Agreement") is entered into on [DATE TO BE INSERTED], 2025 ("Effective Date") by and between:
+
+JOKER INDUSTRIES LLC, a Delaware limited liability company with its principal place of business at 1247 Industrial Boulevard, Gotham City, NY 10001 ("Seller" or "Joker Industries")
+
+AND
+
+WAYNE ENTERPRISES, INC., a Delaware corporation with its principal place of business at Wayne Tower, 1007 Mountain Drive, Gotham City, NY 10019 ("Buyer" or "Wayne Enterprises")
+
+RECITALS
+
+WHEREAS, Joker Industries specializes in the manufacture and distribution of advanced chemical processing equipment and industrial automation systems;
+
+WHEREAS, Wayne Enterprises operates multiple manufacturing facilities requiring upgraded chemical processing capabilities for its Applied Sciences Division;
+
+WHEREAS, Buyer desires to purchase certain equipment and services from Seller as detailed herein;
+
+NOW, THEREFORE, in consideration of the mutual covenants contained herein, the parties agree as follows:
+
+1. PRODUCTS AND SERVICES
+
+Seller agrees to provide the following equipment and services ("Products"):
+
+a) PRIMARY EQUIPMENT PACKAGE:
+   - Model XJ-4400 Chemical Processing Unit (Qty: 3) - $847,500 each
+   - Model XJ-2200 Filtration System (Qty: 2) - $245,000 each  
+   - Model XJ-6600 Automated Control System (Qty: 1) - $675,000
+   - Installation Hardware and Mounting Systems - $125,000
+
+b) PROFESSIONAL SERVICES:
+   - On-site Installation (Est. 120 hours) - $285 per hour = $34,200
+   - Technical Training (40 hours) - $225 per hour = $9,000
+   - System Integration and Testing - $85,000
+   - [PENDING: Need final quote for extended warranty options - Finance reviewing 3yr vs 5yr]
+
+c) CONSUMABLES AND SPARE PARTS (12-month supply):
+   - Filter Cartridges (Model F-440) - 24 units at $425 each = $10,200
+   - Chemical Sensors (Model CS-22) - 36 units at $185 each = $6,660
+   - [INCOMPLETE: Awaiting parts list from Engineering - Target: <$25,000 total]
+
+2. PURCHASE PRICE AND PAYMENT TERMS
+
+TOTAL CONTRACT VALUE: $3,037,560 (subject to final consumables pricing)
+
+PAYMENT SCHEDULE:
+a) Contract Execution: $607,512 (20% deposit) - Due within 5 business days
+b) Equipment Delivery: $1,215,024 (40%) - Due upon delivery confirmation
+c) Installation Completion: $607,512 (20%) - Due upon successful installation
+d) System Acceptance: $607,512 (20%) - Due within 30 days of acceptance testing
+
+[FINANCE NOTE: JI requesting 25/35/25/15 split instead. Under review with Treasury. Current terms reflect standard Wayne procurement policy. - B.Kyle, Procurement]
+
+PAYMENT TERMS:
+- All payments due within Net 30 days from invoice date
+- Late payments subject to 1.5% monthly service charge
+- Early payment discount: 2% if paid within 10 days
+- Wire transfer details to be provided separately
+
+3. DELIVERY AND INSTALLATION
+
+DELIVERY TIMELINE:
+- Equipment manufacturing lead time: 8-10 weeks from contract execution
+- Estimated delivery date: [TO BE CALCULATED based on final execution date]
+- Installation window: 2 weeks following delivery
+- Target project completion: [PENDING FINAL SCHEDULE]
+
+DELIVERY TERMS:
+- FOB Destination to Wayne Enterprises Facility 7 (R&D Complex)
+- Address: 4421 Research Drive, Gotham City, NY 10024
+- Seller responsible for all shipping costs and insurance
+- [LEGAL NOTE: Confirm insurance coverage amounts - current $2M may be insufficient for total shipment value]
+
+4. WARRANTIES AND GUARANTEES
+
+EQUIPMENT WARRANTIES:
+a) Manufacturing defects: 24 months from installation completion
+b) Performance guarantee: Equipment shall meet specifications outlined in Exhibit A
+c) [DRAFT - UNDER NEGOTIATION]: Uptime guarantee of 98.5% during first 12 months
+d) Parts availability guarantee: 10 years for standard components
+
+[TECHNICAL NOTE: Specifications in Exhibit A still being finalized by Applied Sciences team. Dr. Fox reviewing compatibility with existing systems. - Applied Sciences]
+
+5. ACCEPTANCE TESTING
+
+ACCEPTANCE CRITERIA:
+- Equipment shall pass all factory acceptance tests (FAT)
+- Site acceptance testing (SAT) within 30 days of installation
+- Performance metrics must meet minimum thresholds per Exhibit B
+- [INCOMPLETE: Define specific test procedures and success criteria]
+
+REJECTION RIGHTS:
+- Buyer may reject equipment failing acceptance criteria
+- Seller has 30 days to remedy defects
+- [DISPUTE RESOLUTION: Arbitration vs litigation - Legal reviewing options]
+
+6. DELIVERY AND RISK OF LOSS
+
+[SECTION INCOMPLETE - UNDER LEGAL REVIEW]
+[PLACEHOLDER: Need to finalize shipping terms, insurance requirements, and title transfer provisions]
+
+7. INTELLECTUAL PROPERTY
+
+PROPRIETARY RIGHTS:
+a) Seller retains all IP rights in equipment design and software
+b) Buyer receives limited license for operational use only
+c) Reverse engineering prohibited
+d) [PENDING: Review of Wayne Enterprises standard IP protections]
+
+CONFIDENTIALITY:
+- Both parties acknowledge exchange of confidential information
+- Standard mutual NDA executed February 15, 2025 (Ref: NDA-2025-047)
+- [CROSS-REFERENCE: Ensure alignment with existing confidentiality terms]
+
+8. LIMITATION OF LIABILITY
+
+[SECTION DRAFT - UNDER REVIEW]
+TO THE MAXIMUM EXTENT PERMITTED BY LAW:
+a) Seller's total liability limited to contract value ($3,037,560)
+b) No liability for consequential, indirect, or punitive damages
+c) [LEGAL REVIEW PENDING: Wayne standard liability terms vs JI proposed caps]
+d) Business interruption coverage: [AMOUNT TO BE DETERMINED]
+
+9. FORCE MAJEURE
+
+Standard force majeure provisions shall apply including:
+- Acts of God, natural disasters
+- Government regulations or actions  
+- Labor disputes, strikes
+- Supply chain disruptions
+- [ADD: Cyber attacks, pandemic-related delays per 2025 business standards]
+
+10. GOVERNING LAW AND DISPUTE RESOLUTION
+
+- Governed by Delaware state law
+- [UNDER DISCUSSION: Arbitration vs court jurisdiction]
+- Venue: [TO BE DETERMINED - Gotham City vs Wilmington, DE]
+
+11. AUTHORIZED REPRESENTATIVES
+
+JOKER INDUSTRIES:
+Primary Contact: Marcus Thorne, VP Sales
+Phone: (555) 847-3920
+Email: m.thorne@jokerindustries.com
+Contract Authority: Up to $5,000,000
+
+Technical Contact: Dr. Sarah Chen, Chief Engineer  
+Phone: (555) 847-3945
+Email: s.chen@jokerindustries.com
+
+WAYNE ENTERPRISES:
+Primary Contact: Barbara Kyle, Director of Procurement
+Phone: (555) 555-0847
+Email: b.kyle@wayneenterprises.com
+Contract Authority: Approved up to $3,500,000
+
+Technical Contact: Dr. Lucius Fox, Applied Sciences Division
+Phone: (555) 555-0901
+Email: l.fox@wayneenterprises.com
+
+Legal Counsel: Sandra Mitchell, Senior Legal Counsel
+Phone: (555) 555-0723
+Email: s.mitchell@wayneenterprises.com
+
+12. SIGNATURES - PENDING FINAL REVIEW
+
+[SIGNATURE BLOCKS TO BE COMPLETED UPON FINAL APPROVAL]
+
+REQUIRED SIGNATURES - JOKER INDUSTRIES:
+- CEO/President: _________________ (Required for contracts >$2M)
+- VP Sales: _________________ 
+- Legal Counsel: _________________ (If available)
+
+REQUIRED SIGNATURES - WAYNE ENTERPRISES:
+- CFO Approval Required: _________________ (Contracts >$3M)
+- Director of Procurement: _________________
+- Division Head (Applied Sciences): _________________
+- Legal Counsel Review: _________________
+
+[EXECUTION CHECKLIST:
+□ Final technical specifications approved (Dr. Fox)
+□ Financial terms approved (Treasury)
+□ Legal review completed (S. Mitchell)
+□ Risk assessment completed (Risk Management)
+□ Board notification sent (for >$3M contracts)
+□ Insurance verification completed
+□ Background check on Joker Industries completed
+□ Vendor registration in Wayne procurement system
+]
+
+DOCUMENT HISTORY:
+Version 1.0: May 22, 2025 - Initial draft (M. Thorne, Joker Industries)
+Version 2.0: May 30, 2025 - Wayne legal review (S. Mitchell)
+Version 2.1: June 5, 2025 - Technical specifications added (Dr. Fox)
+Version 3.0: June 10, 2025 - Financial terms negotiated (B. Kyle)
+Version 3.1: June 11, 2025 - Insurance provisions added (Risk Mgmt)
+Version 3.2: June 12, 2025 - Current version under review
+
+PENDING ITEMS FOR COMPLETION:
+1. Final consumables pricing (Engineering - Due: June 16)
+2. Delivery schedule confirmation (Logistics - Due: June 17)
+3. Insurance coverage amounts (Risk Management - Due: June 18)
+4. Final liability terms (Legal - Due: June 19)
+5. Acceptance testing procedures (Applied Sciences - Due: June 20)
+
+ESTIMATED COMPLETION DATE: June 25, 2025
+TARGET EXECUTION DATE: June 30, 2025
+
+---
+CONFIDENTIAL DOCUMENT - NOT FOR DISTRIBUTION
+Wayne Enterprises Legal Department
+Document Control Number: WE-LEGAL-2025-0847`;
+
 function App() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('All');
@@ -568,7 +793,7 @@ function App() {
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([]);
+  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant' | 'card' | 'system-progress', content: string }[]>([]);
   const [documentContent, setDocumentContent] = useState('');
   const [createInput, setCreateInput] = useState('');
   const [chatInput, setChatInput] = useState('');
@@ -586,13 +811,16 @@ function App() {
   const [customMessage, setCustomMessage] = React.useState('');
   const [stage, setStage] = useState('template');
   const [showSummaryView, setShowSummaryView] = useState(false);
-  const [msaSummary, setMsaSummary] = useState<null | {
+  const [msaSummary, setMsaSummary] = useState<{
     created: string;
     lastModified: string;
+    effectiveDate: string;
+    renewalDate: string;
     status: string;
     signers: string[];
+    thirdParties: string[];
     tags: string[];
-  }>(null);
+  } | null>(null);
   const [msaClauses, setMsaClauses] = useState<{ heading: string, text: string }[]>([]);
   const sCorpEmployees = [
     'Alice Smith', 'Bob Lee', 'Charlie Kim', 'Diana Patel', 'Evan Chen',
@@ -603,6 +831,8 @@ function App() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const singleFileInputRef = React.useRef<HTMLInputElement>(null);
   const signedTestFileInputRef = React.useRef<HTMLInputElement>(null);
+  const draftTestFileInputRef = React.useRef<HTMLInputElement>(null);
+  const zipFileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Map employee names to avatar image URLs
   const sCorpEmployeeAvatars: Record<string, string> = {
@@ -624,20 +854,30 @@ function App() {
   };
 
   const handleAttachmentMenuClick = ({ key }: MenuInfo) => {
-    if (key === 'upload') {
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-        fileInputRef.current.click();
-      }
-    } else if (key === 'single') {
+    if (key === 'single') {
       if (singleFileInputRef.current) {
         singleFileInputRef.current.value = '';
         singleFileInputRef.current.click();
+      }
+    } else if (key === 'bulk-zip') {
+      if (zipFileInputRef.current) {
+        zipFileInputRef.current.value = '';
+        zipFileInputRef.current.click();
+      }
+    } else if (key === 'docusign') {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+        fileInputRef.current.click();
       }
     } else if (key === 'signed-test') {
       if (signedTestFileInputRef.current) {
         signedTestFileInputRef.current.value = '';
         signedTestFileInputRef.current.click();
+      }
+    } else if (key === 'draft-test') {
+      if (draftTestFileInputRef.current) {
+        draftTestFileInputRef.current.value = '';
+        draftTestFileInputRef.current.click();
       }
     }
   };
@@ -669,6 +909,28 @@ function App() {
       { role: 'assistant', content: 'We detected that your document is a "Signed contract" for a "Master Service Agreement." See the data we extracted below in your summary card.' }
     ]);
     revealSystemSequence();
+    setStage('signed');
+    // Signed-specific summary extraction
+    const createdMatch = text.match(/Initial Draft Date: ([^\n]+)/);
+    const lastModifiedMatch = text.match(/Final Terms Agreed: ([^\n]+)/);
+    const status = 'Signed';
+    const signers: string[] = [];
+    const sCorpSignerMatch = text.match(/By: \/s\/ ([^\n]+)\nName: ([^\n]+)/);
+    if (sCorpSignerMatch) signers.push(sCorpSignerMatch[2]);
+    const vendorNameMatch = text.match(/LE TACO TRUC LLC[\s\S]+By: \/s\/ ([^\n]+)\nName: ([^\n]+)/);
+    if (vendorNameMatch) signers.push(vendorNameMatch[2]);
+    const tags = ['MSA', 'Signed', 'Vendor', 'S-Corp', '2025'];
+    setMsaSummary({
+      created: createdMatch ? createdMatch[1] : '',
+      lastModified: lastModifiedMatch ? lastModifiedMatch[1] : '',
+      effectiveDate: createdMatch ? createdMatch[1] : '',
+      renewalDate: createdMatch ? createdMatch[1] : '',
+      status,
+      signers,
+      thirdParties: ['Le Taco Truc', 'Acme Corp'],
+      tags,
+    });
+    // Extract clause headings and full text
     if (file.name === 'scorp_letacotruck_msa (1).txt') {
       setStage('signed');
       // Parse summary data from the file text
@@ -686,8 +948,11 @@ function App() {
       setMsaSummary({
         created: createdMatch ? createdMatch[1] : '',
         lastModified: lastModifiedMatch ? lastModifiedMatch[1] : '',
+        effectiveDate: createdMatch ? createdMatch[1] : '',
+        renewalDate: createdMatch ? createdMatch[1] : '',
         status,
         signers,
+        thirdParties: ['Le Taco Truc', 'Acme Corp'],
         tags,
       });
       // Extract clause headings and full text
@@ -703,6 +968,46 @@ function App() {
       setMsaSummary(null);
       setMsaClauses([]);
     }
+  };
+
+  const handleDraftTestFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    setDocumentType('Draft');
+    setDocumentContent(text);
+    setUploadedFiles([file]);
+    setSelectedPage('chat');
+    setChatMessages([
+      { role: 'assistant', content: 'We detected that your document is a "Draft contract" for a "Sales Agreement." See the data we extracted below in your summary card.' }
+    ]);
+    revealSystemSequence();
+    setStage('draft');
+    // Extract summary data from the draft doc
+    const createdMatch = text.match(/Version ([\d.]+): ([A-Za-z]+ \d{1,2}, \d{4})/);
+    const lastModifiedMatch = text.match(/Last Modified: ([^\n]+)/);
+    const status = 'Draft';
+    const signers: string[] = [];
+    // No signers in draft, but could parse if needed
+    const tags = ['Sales Agreement', 'Draft', 'Joker Industries', 'Wayne Enterprises', '2025'];
+    setMsaSummary({
+      created: createdMatch ? createdMatch[2] : '',
+      lastModified: lastModifiedMatch ? lastModifiedMatch[1] : '',
+      effectiveDate: createdMatch ? createdMatch[2] : '',
+      renewalDate: createdMatch ? createdMatch[2] : '',
+      status,
+      signers,
+      thirdParties: ['Le Taco Truc', 'Acme Corp'],
+      tags,
+    });
+    // Extract clause headings and full text
+    const clauseRegex = /^(\d+\. .+?)(?:\n|\r\n)([\s\S]*?)(?=^\d+\. |^---|^CONFIDENTIAL DOCUMENT|\Z)/gm;
+    const clauses: { heading: string, text: string }[] = [];
+    let match;
+    while ((match = clauseRegex.exec(text)) !== null) {
+      clauses.push({ heading: match[1].trim(), text: match[2].trim() });
+    }
+    setMsaClauses(clauses);
   };
 
   const filteredData = contractData.filter(contract => {
@@ -721,11 +1026,6 @@ function App() {
     }
   }, [darkMode]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    setUploadedFiles(files);
-    setUploadModalVisible(true);
-  };
 
   // Add normalization for LLM classification
   function normalizeClassification(response: string): string {
@@ -972,16 +1272,34 @@ function App() {
   ];
 
   // Add state for editable summary fields
-  const [editableSummary, setEditableSummary] = useState({
+  interface EditableSummary {
+    brief: string;
+    created: string;
+    lastModified: string;
+    effectiveDate: string;
+    renewalDate: string;
+    status: string;
+    signers: string[];
+    thirdParties: string[];
+    tags: string[];
+    clauses: { heading: string; text: string; }[];
+    newTag: string;
+  }
+
+  const [editableSummary, setEditableSummary] = useState<EditableSummary>({
     brief: uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt'
       ? 'This Master Service Agreement (MSA) establishes a signed contract between S-Corp and Le Taco Truc for mobile catering services, including real lifecycle and signature data.'
       : 'This Non-Disclosure Agreement (NDA) is designed to protect confidential information shared between S-Corp and their clients. It covers various aspects of confidentiality including personal information, event details, and business relationships.',
     created: msaSummary?.created || 'March 15, 2024',
     lastModified: msaSummary?.lastModified || 'March 20, 2024',
+    effectiveDate: msaSummary?.effectiveDate || 'March 15, 2024',
+    renewalDate: msaSummary?.renewalDate || 'March 15, 2024',
     status: msaSummary?.status || 'Template',
     signers: msaSummary?.signers || [''],
+    thirdParties: msaSummary?.thirdParties || ['Le Taco Truc', 'Acme Corp'],
     tags: msaSummary?.tags || ['NDA', 'Template', 'Legal', 'Confidentiality', 'Client Services'],
     clauses: msaClauses?.map(c => ({ heading: c.heading, text: c.text })) || [],
+    newTag: '',
   });
   const [editing, setEditing] = useState(false);
 
@@ -993,12 +1311,282 @@ function App() {
         : 'This Non-Disclosure Agreement (NDA) is designed to protect confidential information shared between S-Corp and their clients. It covers various aspects of confidentiality including personal information, event details, and business relationships.',
       created: msaSummary?.created || 'March 15, 2024',
       lastModified: msaSummary?.lastModified || 'March 20, 2024',
+      effectiveDate: msaSummary?.effectiveDate || 'March 15, 2024',
+      renewalDate: msaSummary?.renewalDate || 'March 15, 2024',
       status: msaSummary?.status || 'Template',
       signers: msaSummary?.signers || [''],
+      thirdParties: msaSummary?.thirdParties || ['Le Taco Truc', 'Acme Corp'],
       tags: msaSummary?.tags || ['NDA', 'Template', 'Legal', 'Confidentiality', 'Client Services'],
       clauses: msaClauses?.map(c => ({ heading: c.heading, text: c.text })) || [],
+      newTag: '',
     });
   }, [msaSummary, msaClauses, uploadedFiles]);
+
+  // Add state for save type modal
+  const [saveTypeModalOpen, setSaveTypeModalOpen] = useState(false);
+  const [selectedSaveType, setSelectedSaveType] = useState<'concord' | 'word' | null>(null);
+
+  // Update handleFileChange to only handle single file uploads or fallback
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // You can keep single file upload logic here if needed, or leave empty if not used
+  };
+
+  // Add state for selected ZIP file
+  const [selectedZipFile, setSelectedZipFile] = useState<File | null>(null);
+
+  // Add handler for ZIP file selection
+  const handleZipFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== 'application/zip' && !file.name.toLowerCase().endsWith('.zip')) {
+      message.error('Please select a valid .zip file.');
+      return;
+    }
+    setSelectedZipFile(file);
+    setSelectedPage('chat');
+    // Parse ZIP and build tree
+    try {
+      const zip = await JSZip.loadAsync(file);
+      const tree = buildTreeFromZip(zip);
+      setBulkUploadTreeData(tree);
+      // Count real docs/folders
+      const { docCount, folderCount } = countDocsAndFolders(tree);
+      setBulkUploadDocCount(docCount);
+      setBulkUploadFolderCount(folderCount);
+      setBulkUploadTotal(docCount);
+    } catch (err) {
+      message.error('Failed to read ZIP file.');
+      setBulkUploadTreeData([]);
+      setBulkUploadDocCount(0);
+      setBulkUploadFolderCount(0);
+      setBulkUploadTotal(0);
+    }
+  };
+
+  // Add state for bulk upload simulation
+  const [bulkUploadActive, setBulkUploadActive] = useState(false);
+  const [bulkUploadDocCount, setBulkUploadDocCount] = useState(0);
+  const [bulkUploadFolderCount, setBulkUploadFolderCount] = useState(0);
+  const [bulkUploadProgress, setBulkUploadProgress] = useState(0);
+  const [bulkUploadLog, setBulkUploadLog] = useState<string[]>([]);
+  const [bulkUploadTotal, setBulkUploadTotal] = useState(0);
+  const [bulkUploadAnimating, setBulkUploadAnimating] = useState(false);
+
+  // Add state for toggling between log and tree view
+  const [showBulkTree, setShowBulkTree] = useState(false);
+  // Mock file/folder tree data for ZIP contents
+  const [bulkUploadTreeData, setBulkUploadTreeData] = useState<DataNode[]>([]);
+
+  // Simulate ZIP processing and upload when selectedZipFile is set
+  useEffect(() => {
+    if (
+      selectedZipFile &&
+      bulkUploadDocCount > 0 &&
+      bulkUploadTotal > 0 &&
+      bulkUploadFolderCount >= 0
+    ) {
+      setBulkUploadProgress(0);
+      setBulkUploadLog([]);
+      setBulkUploadActive(true);
+      setBulkUploadAnimating(true);
+      setChatMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: `Bulk upload started for ${bulkUploadDocCount} documents in ${bulkUploadFolderCount} folders.` },
+        { role: 'system-progress', content: 'Document upload in progress' }
+      ]);
+      let progress = 0;
+      const log: string[] = [];
+      function uploadNext() {
+        if (progress < bulkUploadTotal) {
+          setTimeout(() => {
+            progress++;
+            log.push(`Uploaded document ${progress} of ${bulkUploadTotal}`);
+            setBulkUploadProgress(progress);
+            setBulkUploadLog([...log]);
+            uploadNext();
+          }, 800);
+        } else {
+          setBulkUploadAnimating(false);
+          log.push('All documents uploaded successfully.');
+          setBulkUploadLog([...log]);
+          setChatMessages(prev => prev.map(m =>
+            m.role === 'system-progress'
+              ? { ...m, content: `${bulkUploadTotal} / ${bulkUploadTotal} documents uploaded successfully` }
+              : m
+          ));
+        }
+      }
+      uploadNext();
+    } else if (!selectedZipFile) {
+      setBulkUploadActive(false);
+      setBulkUploadAnimating(false);
+      setBulkUploadDocCount(0);
+      setBulkUploadFolderCount(0);
+      setBulkUploadProgress(0);
+      setBulkUploadLog([]);
+      setBulkUploadTotal(0);
+    }
+    // eslint-disable-next-line
+  }, [selectedZipFile, bulkUploadDocCount, bulkUploadTotal, bulkUploadFolderCount]);
+
+  // Helper to build AntD tree from JSZip files
+  function buildTreeFromZip(zip: JSZip): DataNode[] {
+    const root: any = {};
+    Object.values(zip.files).forEach(file => {
+      const parts = file.name.split('/').filter(Boolean);
+      let node = root;
+      parts.forEach((part, idx) => {
+        if (!node[part]) {
+          node[part] = idx === parts.length - 1 && !file.dir
+            ? { __file: true, file } : {};
+        }
+        node = node[part];
+      });
+    });
+    function toTree(node: any, path = ''): DataNode[] {
+      return Object.entries(node).map(([name, value], i) => {
+        const key = path ? `${path}/${name}` : name;
+        if ((value as any).__file) {
+          return {
+            title: name,
+            key,
+            icon: <FileTextOutlined />,
+          };
+        } else {
+          return {
+            title: name,
+            key,
+            icon: <FolderOpenOutlined />,
+            children: toTree(value, key),
+          };
+        }
+      });
+    }
+    return toTree(root);
+  }
+
+  // Render a system progress card in the chat panel for bulk upload
+  const renderBulkUploadSystemCard = () => (
+    <div className="flex justify-start w-full mt-2">
+      <Card
+        size="small"
+        title={
+          <span className="font-semibold text-sm flex items-center justify-between w-full">
+            {bulkUploadAnimating
+              ? `Document upload in progress`
+              : `${bulkUploadProgress} / ${bulkUploadTotal} documents uploaded successfully`}
+            <ArrowRightOutlined
+              className="ml-2 cursor-pointer"
+              rotate={showBulkTree ? 90 : 0}
+              onClick={() => setShowBulkTree(t => !t)}
+            />
+          </span>
+        }
+        style={{
+          background: darkMode ? '#232326' : '#f5f5f7',
+          color: darkMode ? '#fff' : '#222',
+          borderRadius: 12,
+          width: '100%',
+          marginBottom: 24,
+          cursor: 'pointer',
+          border: showBulkTree ? '2px solid #FF5669' : (darkMode ? '1px solid transparent' : '1px solid transparent'),
+          boxShadow: showBulkTree ? '0 0 0 2px #FF566955, 0 2px 8px 0 rgba(0,0,0,0.05)' : undefined
+        }}
+        className={
+          `hover:shadow-md active:shadow-sm active:translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-[#FF5669] active:ring-2 active:ring-[#FF5669]` +
+          (showBulkTree ? ' ring-2 ring-[#FF5669] shadow-md' : '')
+        }
+        onClick={() => setShowBulkTree(t => !t)}
+        hoverable
+      >
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-xs">
+            <FileZipOutlined className="text-base" />
+            {selectedZipFile?.name}
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <FolderOpenOutlined className="text-base" />
+            {bulkUploadFolderCount} Folders
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <FileTextOutlined className="text-base" />
+            {bulkUploadDocCount} Documents
+          </div>
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mt-2">
+            <div
+              className="bg-[#FF5669] h-3 rounded-full transition-all duration-700"
+              style={{ width: `${bulkUploadTotal ? (bulkUploadProgress / bulkUploadTotal) * 100 : 0}%` }}
+            />
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+
+  // Bulk upload folder selection state
+  const [bulkFolderDropdownOpen, setBulkFolderDropdownOpen] = useState(false);
+  const [bulkFolderOptions] = useState([
+    '+ New folder',
+    '2024 NDAs',
+    'Client Contracts',
+    'HR Documents',
+    'Finance',
+    'Legal Archive',
+  ]);
+  const [bulkSelectedFolder, setBulkSelectedFolder] = useState<string | null>(null);
+  const [bulkNewFolderInput, setBulkNewFolderInput] = useState('');
+  const [bulkShowSave, setBulkShowSave] = useState(false);
+  const [bulkSaveSuccess, setBulkSaveSuccess] = useState(false);
+
+  // Helper to count real documents and folders from the ZIP tree
+  function countDocsAndFolders(tree: DataNode[]): { docCount: number; folderCount: number } {
+    let docCount = 0;
+    let folderCount = 0;
+    function traverse(nodes: DataNode[]) {
+      for (const node of nodes) {
+        if (node.children && node.children.length > 0) {
+          folderCount++;
+          traverse(node.children);
+        } else {
+          docCount++;
+        }
+      }
+    }
+    traverse(tree);
+    return { docCount, folderCount };
+  }
+
+  // Clear bulk upload state on hard refresh
+  useEffect(() => {
+    const clearBulkUpload = () => {
+      setSelectedZipFile(null);
+      setBulkUploadDocCount(0);
+      setBulkUploadFolderCount(0);
+      setBulkUploadProgress(0);
+      setBulkUploadLog([]);
+      setBulkUploadTotal(0);
+      setBulkUploadAnimating(false);
+      setBulkUploadActive(false);
+      setBulkUploadTreeData([]);
+      setShowBulkTree(false);
+      setBulkSelectedFolder(null);
+      setBulkNewFolderInput('');
+      setBulkShowSave(false);
+      setBulkSaveSuccess(false);
+    };
+    window.addEventListener('load', clearBulkUpload);
+    return () => window.removeEventListener('load', clearBulkUpload);
+  }, []);
+
+  // Add function to handle stage changes
+  const handleStageChange = (newStage: string) => {
+    setStage(newStage);
+    // Add system message for stage change
+    setChatMessages(prev => [...prev, {
+      role: 'system-progress',
+      content: `Document status changed to: ${newStage.charAt(0).toUpperCase() + newStage.slice(1)}`
+    }]);
+  };
 
   return (
     <ConfigProvider
@@ -1206,18 +1794,122 @@ function App() {
                                 {msg.content}
                               </div>
                             </div>
+                            {/* Bulk upload system progress card as second message */}
+                            {selectedZipFile && msg.role === 'system-progress' && idx === 1 && renderBulkUploadSystemCard()}
+                            {/* Bulk upload folder selection system message (third message) */}
+                            {selectedZipFile && msg.role === 'system-progress' && idx === 1 && !bulkSaveSuccess && bulkUploadProgress === bulkUploadTotal && bulkUploadTotal > 0 && (
+                              <div className="flex justify-start w-full mt-2">
+                                <Card
+                                  size="small"
+                                  style={{ background: 'transparent', boxShadow: 'none', border: 'none', color: darkMode ? '#fff' : '#222', width: '100%' }}
+                                  bodyStyle={{ padding: 0 }}
+                                >
+                                  <div className="flex flex-col gap-2">
+                                    <div className="font-semibold text-sm mb-1">Select a folder for these documents</div>
+                                    <div className="text-xs text-gray-400 mb-2">Documents will maintain their current folder organisation, inside this new destination folder.</div>
+                                    <div className="flex items-center gap-2">
+                                      <Select
+                                        open={bulkFolderDropdownOpen}
+                                        onDropdownVisibleChange={setBulkFolderDropdownOpen}
+                                        value={bulkSelectedFolder || undefined}
+                                        style={{ minWidth: 220, borderRadius: 8 }}
+                                        placeholder="Choose folder"
+                                        onChange={val => {
+                                          setBulkSelectedFolder(val);
+                                          setBulkShowSave(Boolean(val && val !== '+ New folder'));
+                                          if (val !== '+ New folder') setBulkNewFolderInput('');
+                                        }}
+                                        dropdownRender={menu => (
+                                          <>
+                                            <div style={{ padding: 8, borderBottom: '1px solid #eee' }}>
+                                              <span className="font-semibold text-xs">Choose a folder</span>
+                                            </div>
+                                            {menu}
+                                          </>
+                                        )}
+                                        options={bulkFolderOptions.map(opt => ({ label: opt, value: opt }))}
+                                      />
+                                      {bulkSelectedFolder === '+ New folder' && (
+                                        <Input
+                                          autoFocus
+                                          size="small"
+                                          style={{ width: 180, borderRadius: 8 }}
+                                          placeholder="New folder name"
+                                          value={bulkNewFolderInput}
+                                          onChange={e => setBulkNewFolderInput(e.target.value)}
+                                          onPressEnter={e => {
+                                            const val = bulkNewFolderInput.trim();
+                                            if (val) {
+                                              setBulkSelectedFolder(val);
+                                              setBulkShowSave(true);
+                                              setBulkFolderDropdownOpen(false);
+                                            }
+                                          }}
+                                        />
+                                      )}
+                                    </div>
+                                    {/* Show SAVE button after folder selection/input */}
+                                    {bulkShowSave && (
+                                      <Button
+                                        type="primary"
+                                        style={{ marginTop: 8, borderRadius: 8, background: '#FF5669', border: 'none', width: 120 }}
+                                        disabled={bulkSelectedFolder === '+ New folder' || !bulkSelectedFolder}
+                                        onClick={() => {
+                                          setBulkSaveSuccess(true);
+                                          setTimeout(() => setBulkSaveSuccess(false), 5000);
+                                        }}
+                                      >
+                                        Save
+                                      </Button>
+                                    )}
+                                  </div>
+                                </Card>
+                              </div>
+                            )}
+                            {/* Bulk upload folder save success message */}
+                            {selectedZipFile && bulkSaveSuccess && msg.role === 'system-progress' && idx === 1 && bulkUploadProgress === bulkUploadTotal && bulkUploadTotal > 0 && (
+                              <div className="flex justify-start w-full mt-2">
+                                <Card
+                                  size="small"
+                                  style={{ background: 'transparent', boxShadow: 'none', border: 'none', color: darkMode ? '#fff' : '#222', width: '100%' }}
+                                  bodyStyle={{ padding: 0 }}
+                                >
+                                  <div className="flex flex-col gap-2">
+                                    <div className="font-semibold text-sm mb-1">{bulkUploadDocCount} documents saved to {bulkSelectedFolder}.</div>
+                                    <div className="text-xs text-gray-400 mb-2">Can Concord AI help you with anything else?</div>
+                                  </div>
+                                </Card>
+                              </div>
+                            )}
                             {/* Staged file card */}
                             {idx === 0 && msg.role === 'assistant' && msg.content.startsWith('We detected that') && (
                               stagedStep === 0 ? (
                                 <div className="flex justify-start w-full mt-2"><Spinner /></div>
                               ) : stagedStep > 0 ? (
                                 <div className="flex justify-start w-full mt-2">
-                                  <Card size="small" style={{ background: darkMode ? '#232326' : '#f5f5f7', color: darkMode ? '#fff' : '#222', borderRadius: 12, minWidth: 220 }}>
-                                    <div className="flex items-center gap-2 text-xs break-all">
-                                      <FileTextOutlined className="text-base" />
-                                      {uploadedFiles[0]?.name || 'scorp-nda-2025.txt'}
-                                    </div>
-                                  </Card>
+                                  <div className="flex items-center gap-3">
+                                    <Card size="small" style={{ background: darkMode ? '#232326' : '#f5f5f7', color: darkMode ? '#fff' : '#222', borderRadius: 12, minWidth: 220 }}>
+                                      <div className="flex items-center gap-2 text-xs break-all">
+                                        <FileTextOutlined className="text-base" />
+                                        {uploadedFiles[0]?.name || 'scorp-nda-2025.txt'}
+                                      </div>
+                                    </Card>
+                                    <Select
+                                      value={stage}
+                                      onChange={handleStageChange}
+                                      style={{ 
+                                        minWidth: 120,
+                                        background: darkMode ? 'rgba(255,255,255,0.08)' : '#f3f3f3',
+                                        borderRadius: 8
+                                      }}
+                                      options={[
+                                        { label: 'Template', value: 'template' },
+                                        { label: 'Signing', value: 'signing' },
+                                        { label: 'Signed', value: 'signed' },
+                                        { label: 'Draft', value: 'draft' },
+                                      ]}
+                                    />
+                                  </div>
                                 </div>
                               ) : null
                             )}
@@ -1248,57 +1940,84 @@ function App() {
                               stagedStep === 2 ? (
                                 <div className="flex justify-start w-full mt-2"><Spinner /></div>
                               ) : stagedStep > 2 ? (
-                                <div className="flex justify-start w-full mt-2">
-                                  {/* Existing summary card code here */}
-                                  <Card 
-                                    size="small" 
-                                    title={<span className="font-semibold text-sm flex items-center justify-between w-full">Summary and meta-data <ArrowRightOutlined /></span>} 
-                                    style={{ 
-                                      background: darkMode ? '#232326' : '#f5f5f7', 
-                                      color: darkMode ? '#fff' : '#222', 
-                                      borderRadius: 12, 
-                                      width: '100%', 
-                                      cursor: 'pointer',
-                                      transition: 'all 0.2s ease',
-                                      border: showSummaryView ? '2px solid #FF5669' : (darkMode ? '1px solid transparent' : '1px solid transparent'),
-                                      boxShadow: showSummaryView ? '0 0 0 2px #FF566955, 0 2px 8px 0 rgba(0,0,0,0.05)' : undefined
-                                    }}
-                                    className={
-                                      `hover:shadow-md active:shadow-sm active:translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-[#FF5669] active:ring-2 active:ring-[#FF5669]` +
-                                      (showSummaryView ? ' ring-2 ring-[#FF5669] shadow-md' : '')
-                                    }
-                                    onClick={handleSummaryCardClick}
-                                    hoverable
-                                  >
-                                    <div className="space-y-3">
-                                      {editableSummary.created && editableSummary.lastModified && (
-                                        <div className="flex items-center gap-2 text-xs">
-                                          <CalendarOutlined className="text-base" />
-                                          <span>
-                                            {dayjs(editableSummary.created, ['MMMM D, YYYY', 'MMM D, YYYY']).format('MMM D, YYYY')} - {dayjs(editableSummary.lastModified, ['MMMM D, YYYY', 'MMM D, YYYY']).format('MMM D, YYYY')}
-                                          </span>
-                                        </div>
-                                      )}
-                                      {editableSummary.tags.length > 0 && (
-                                        <div className="flex items-center gap-2 text-xs">
-                                          <TagsOutlined className="text-base" />
-                                          <span>{editableSummary.tags.length} Tags</span>
-                                        </div>
-                                      )}
-                                      {editableSummary.signers.filter(s => s.trim() !== '').length > 0 && (
-                                        <div className="flex items-center gap-2 text-xs">
-                                          <UserOutlined className="text-base" />
-                                          <span>{editableSummary.signers.filter(s => s.trim() !== '').length} Signers</span>
-                                        </div>
-                                      )}
-                                      {editableSummary.clauses.length > 0 && (
-                                        <div className="flex items-center gap-2 text-xs">
-                                          <FileTextOutlined className="text-base" />
-                                          <span>{editableSummary.clauses.length} Clauses</span>
-                                        </div>
-                                      )}
+                                <div className="space-y-4">
+                                  <div className="flex justify-start w-full mt-2">
+                                    <Card 
+                                      size="small" 
+                                      title={<span className="font-semibold text-sm flex items-center justify-between w-full">Summary and meta-data <ArrowRightOutlined /></span>} 
+                                      style={{ 
+                                        background: darkMode ? '#232326' : '#f5f5f7', 
+                                        color: darkMode ? '#fff' : '#222', 
+                                        borderRadius: 12, 
+                                        width: '100%', 
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        border: showSummaryView ? '2px solid #FF5669' : (darkMode ? '1px solid transparent' : '1px solid transparent'),
+                                        boxShadow: showSummaryView ? '0 0 0 2px #FF566955, 0 2px 8px 0 rgba(0,0,0,0.05)' : undefined
+                                      }}
+                                      className={
+                                        `hover:shadow-md active:shadow-sm active:translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-[#FF5669] active:ring-2 active:ring-[#FF5669]` +
+                                        (showSummaryView ? ' ring-2 ring-[#FF5669] shadow-md' : '')
+                                      }
+                                      onClick={handleSummaryCardClick}
+                                      hoverable
+                                    >
+                                      <div className="space-y-3">
+                                        {editableSummary.created && editableSummary.lastModified && (
+                                          <div className="flex items-center gap-2 text-xs">
+                                            <CalendarOutlined className="text-base" />
+                                            <span>
+                                              {dayjs(editableSummary.created, ['MMMM D, YYYY', 'MMM D, YYYY']).format('MMM D, YYYY')} - {dayjs(editableSummary.lastModified, ['MMMM D, YYYY', 'MMM D, YYYY']).format('MMM D, YYYY')}
+                                            </span>
+                                          </div>
+                                        )}
+                                        {editableSummary.tags.length > 0 && (
+                                          <div className="flex items-center gap-2 text-xs">
+                                            <TagsOutlined className="text-base" />
+                                            <span>{editableSummary.tags.length} Tags</span>
+                                          </div>
+                                        )}
+                                        {editableSummary.clauses.length > 0 && (
+                                          <div className="flex items-center gap-2 text-xs">
+                                            <FileTextOutlined className="text-base" />
+                                            <span>{editableSummary.clauses.length} Clauses</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </Card>
+                                  </div>
+                                  {/* Add system message about saving */}
+                                  <div className="flex justify-start w-full">
+                                    <div className="flex flex-col gap-3">
+                                      <div
+                                        className="px-4 py-3 rounded-2xl shadow-sm rounded-bl-md"
+                                        style={{
+                                          background: 'transparent',
+                                          color: '#FFF',
+                                          wordBreak: 'break-word',
+                                          display: 'inline-block',
+                                          maxWidth: '80%',
+                                          minWidth: 48
+                                        }}
+                                      >
+                                        Where do you want to save this document?
+                                      </div>
+                                      <div className="pl-4 flex flex-col gap-2">
+                                        {selectedFolder && (
+                                          <div className="text-sm text-gray-400">
+                                            Selected: {selectedFolder}
+                                          </div>
+                                        )}
+                                        <Button 
+                                          type="default"
+                                          size="middle"
+                                          onClick={() => setSaveModalOpen(true)}
+                                        >
+                                          Select folder
+                                        </Button>
+                                      </div>
                                     </div>
-                                  </Card>
+                                  </div>
                                 </div>
                               ) : null
                             )}
@@ -1346,287 +2065,213 @@ function App() {
                 </div>
                 {/* Document panel */}
                 <div className="w-3/5 flex flex-col h-full min-h-0">
-                  {!showSummaryView && (
-                    <div className="mb-4 px-5 py-3" style={{ borderBottom: darkMode ? '1px solid #333' : '1px solid #e5e7eb' }}>
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className="font-bold text-lg dark:text-white">{uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt' ? 'Le Taco Truc - MSA 2025' : 'S-Corp Non-Disclosure Agreement 2025'}</div>
-                          <Select
-                            value={stage}
-                            onChange={setStage}
-                            style={{ minWidth: 120, borderRadius: 9999, background: darkMode ? 'rgba(255,255,255,0.08)' : '#f3f3f3', fontWeight: 600, height: 26, padding: '0 10px', fontSize: 14, lineHeight: '24px' }}
-                            dropdownStyle={{ minWidth: 120 }}
-                            bordered={false}
-                            options={[
-                              { label: 'Template', value: 'template' },
-                              { label: 'Signing', value: 'signing' },
-                              { label: 'Signed', value: 'signed' },
-                              { label: 'Draft', value: 'draft' },
-                            ]}
-                            className="stage-badge-select"
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <Button type="default" size="middle" disabled={showSummaryView && uploadedFiles[0]?.name !== 'scorp_letacotruck_msa (1).txt'}>Open Editor</Button>
-                          {uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt' ? (
-                            <Button type="primary" size="middle" style={{ background: '#FF5669', border: 'none' }} disabled={false} onClick={() => setSaveModalOpen(true)}>Save</Button>
-                          ) : (
-                            <Button type="primary" size="middle" style={{ background: '#FF5669', border: 'none' }} onClick={() => setSaveModalOpen(true)} disabled={showSummaryView}>Save</Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  {showSummaryView ? (
-                    <div className="flex-1 p-6 overflow-y-auto">
-                      <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-xl font-semibold dark:text-white">Document Summary</h2>
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            type="primary"
-                            onClick={() => {
-                              // Save changes
-                              setMsaSummary({
-                                created: editableSummary.created,
-                                lastModified: editableSummary.lastModified,
-                                status: editableSummary.status,
-                                signers: editableSummary.signers,
-                                tags: editableSummary.tags,
-                              });
-                              setMsaClauses(editableSummary.clauses);
-                              // Close panel
-                              setShowSummaryView(false);
-                              // Show success message
-                              message.success('Summary details saved successfully');
-                            }}
-                          >
-                            Save
-                          </Button>
-                          <Button 
-                            type="text" 
-                            icon={<CloseOutlined />} 
-                            onClick={() => {
-                              // Reset to original values
-                              setEditableSummary({
-                                brief: uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt'
-                                  ? 'This Master Service Agreement (MSA) establishes a signed contract between S-Corp and Le Taco Truc for mobile catering services, including real lifecycle and signature data.'
-                                  : 'This Non-Disclosure Agreement (NDA) is designed to protect confidential information shared between S-Corp and their clients. It covers various aspects of confidentiality including personal information, event details, and business relationships.',
-                                created: msaSummary?.created || 'March 15, 2024',
-                                lastModified: msaSummary?.lastModified || 'March 20, 2024',
-                                status: msaSummary?.status || 'Template',
-                                signers: msaSummary?.signers || [''],
-                                tags: msaSummary?.tags || ['NDA', 'Template', 'Legal', 'Confidentiality', 'Client Services'],
-                                clauses: msaClauses?.map(c => ({ heading: c.heading, text: c.text })) || [],
-                              });
-                              setShowSummaryView(false);
-                            }} 
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-6">
-                        <Card title="Brief Summary" size="small" bordered={false}>
-                          <Input.TextArea
-                            value={editableSummary.brief}
-                            onChange={e => setEditableSummary(s => ({ ...s, brief: e.target.value }))}
-                            autoSize={{ minRows: 2, maxRows: 6 }}
-                            variant="borderless"
-                            style={{ background: 'transparent', fontSize: '1em', padding: 0 }}
-                          />
-                        </Card>
-                        <Card title="Lifecycle Data" size="small" bordered={false}>
-                          <div className="space-y-2">
-                            <div className="flex justify-between items-center gap-2">
-                              <span>Created:</span>
-                              <DatePicker
-                                value={editableSummary.created ? dayjs(editableSummary.created, ['MMMM D, YYYY', 'MMM D, YYYY']) : null}
-                                onChange={(date) => setEditableSummary(s => ({ 
-                                  ...s, 
-                                  created: date ? date.format('MMM D, YYYY') : '' 
-                                }))}
-                                size="small"
-                                format="MMM D, YYYY"
-                                allowClear={false}
-                                style={{ 
-                                  maxWidth: 180, 
-                                  background: 'transparent',
-                                }}
-                                className={`
-                                  dark:bg-[#232326] dark:border-gray-700 
-                                  hover:border-[#FF5669] focus:border-[#FF5669] 
-                                  dark:hover:border-[#FF5669] dark:focus:border-[#FF5669]
-                                `}
-                                popupStyle={{
-                                  background: darkMode ? '#1f1f1f' : '#ffffff',
-                                }}
-                                disabledDate={(current) => {
-                                  if (!current) return false;
-                                  return current.isAfter(dayjs());
-                                }}
-                              />
-                            </div>
-                            <div className="flex justify-between items-center gap-2">
-                              <span>Last Modified:</span>
-                              <DatePicker
-                                value={editableSummary.lastModified ? dayjs(editableSummary.lastModified, ['MMMM D, YYYY', 'MMM D, YYYY']) : null}
-                                onChange={(date) => setEditableSummary(s => ({ 
-                                  ...s, 
-                                  lastModified: date ? date.format('MMM D, YYYY') : '' 
-                                }))}
-                                size="small"
-                                format="MMM D, YYYY"
-                                allowClear={false}
-                                style={{ 
-                                  maxWidth: 180, 
-                                  background: 'transparent',
-                                }}
-                                className={`
-                                  dark:bg-[#232326] dark:border-gray-700 
-                                  hover:border-[#FF5669] focus:border-[#FF5669] 
-                                  dark:hover:border-[#FF5669] dark:focus:border-[#FF5669]
-                                `}
-                                popupStyle={{
-                                  background: darkMode ? '#1f1f1f' : '#ffffff',
-                                }}
-                                disabledDate={(current) => {
-                                  if (!current) return false;
-                                  const createdDate = editableSummary.created ? dayjs(editableSummary.created, ['MMMM D, YYYY', 'MMM D, YYYY']) : null;
-                                  return current.isAfter(dayjs()) || Boolean(createdDate && current.isBefore(createdDate));
-                                }}
-                              />
-                            </div>
-                            <div className="flex justify-between items-center gap-2">
-                              <span>Status:</span>
-                              <Input
-                                value={editableSummary.status}
-                                onChange={e => setEditableSummary(s => ({ ...s, status: e.target.value }))}
-                                size="small"
-                                variant="borderless"
-                                style={{ maxWidth: 180, background: 'transparent', border: 'none', padding: 0 }}
-                              />
-                            </div>
-                          </div>
-                        </Card>
-                        <Card title="Signers" size="small" bordered={false}>
-                          <div className="flex flex-col gap-1">
-                            {editableSummary.signers.map((signer, idx) => (
-                              <Input
-                                key={idx}
-                                value={signer}
-                                onChange={e => {
-                                  const newSigners = [...editableSummary.signers];
-                                  newSigners[idx] = e.target.value;
-                                  setEditableSummary(s => ({ ...s, signers: newSigners }));
-                                }}
-                                size="small"
-                                variant="borderless"
-                                style={{ background: 'transparent', border: 'none', padding: 0 }}
-                              />
-                            ))}
-                            <Button size="small" onClick={() => setEditableSummary(s => ({ ...s, signers: [...s.signers, ''] }))}>Add Signer</Button>
-                          </div>
-                        </Card>
-                        <Card title="Main Tags" size="small" bordered={false}>
-                          <div className="flex flex-wrap gap-2">
-                            {editableSummary.tags.map((tag, idx) => (
-                              <Input
-                                key={idx}
-                                value={tag}
-                                onChange={e => {
-                                  const newTags = [...editableSummary.tags];
-                                  newTags[idx] = e.target.value;
-                                  setEditableSummary(s => ({ ...s, tags: newTags }));
-                                }}
-                                size="small"
-                                variant="borderless"
-                                style={{ width: 120, background: 'transparent', border: 'none', padding: 0 }}
-                              />
-                            ))}
-                            <Button size="small" onClick={() => setEditableSummary(s => ({ ...s, tags: [...s.tags, ''] }))}>Add Tag</Button>
-                          </div>
-                        </Card>
-                        <Card title="Clauses" size="small" bordered={false}>
-                          {editableSummary.clauses.length > 0 ? (
-                            <div className="space-y-4">
-                              {editableSummary.clauses.map((clause, idx) => (
-                                <div key={idx} className="space-y-2">
-                                  <Input
-                                    value={clause.heading}
-                                    onChange={e => {
-                                      const newClauses = [...editableSummary.clauses];
-                                      newClauses[idx].heading = e.target.value;
-                                      setEditableSummary(s => ({ ...s, clauses: newClauses }));
-                                    }}
-                                    size="small"
-                                    variant="borderless"
-                                    style={{ fontWeight: 600, width: '100%', background: 'transparent', border: 'none', padding: 0 }}
-                                    placeholder="Clause heading"
-                                  />
-                                  <Input.TextArea
-                                    value={clause.text}
-                                    onChange={e => {
-                                      const newClauses = [...editableSummary.clauses];
-                                      newClauses[idx].text = e.target.value;
-                                      setEditableSummary(s => ({ ...s, clauses: newClauses }));
-                                    }}
-                                    autoSize={{ minRows: 2, maxRows: 6 }}
-                                    variant="borderless"
-                                    style={{ background: 'transparent', fontSize: '0.9em', padding: 0 }}
-                                    placeholder="Clause text"
-                                  />
-                                  {idx < editableSummary.clauses.length - 1 && (
-                                    <div className="border-b border-gray-200 dark:border-gray-700 my-4" />
-                                  )}
-                                </div>
-                              ))}
-                              <Button 
-                                size="small" 
-                                onClick={() => setEditableSummary(s => ({ ...s, clauses: [...s.clauses, { heading: '', text: '' }] }))}
-                                className="mt-4"
-                              >
-                                Add Clause
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="space-y-4">
-                              <div className="text-gray-400 text-sm">No clauses available</div>
-                              <Button 
-                                size="small" 
-                                onClick={() => setEditableSummary(s => ({ ...s, clauses: [{ heading: '', text: '' }] }))}
-                              >
-                                Add Clause
-                              </Button>
-                            </div>
-                          )}
-                        </Card>
-                        <div className="flex justify-end mt-4">
-                          <Button type="primary" onClick={() => setEditing(false)}>Save</Button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex-1 rounded-2xl p-6 shadow-inner overflow-y-auto whitespace-pre-line text-gray-900 dark:text-gray-100 min-h-0" style={{ minHeight: 0 }}>
-                      {documentLoading ? (
-                        <div className="text-gray-400 text-center mt-8">Generating document...</div>
-                      ) : documentContent ? (
-                        <div
-                          style={{
-                            transition: 'opacity 0.3s',
-                            opacity: fade ? 1 : 0,
-                            height: '100%',
-                          }}
+                  {/* Bulk upload ZIP experience */}
+                  {selectedZipFile ? (
+                    <div className="flex-1 flex flex-col p-6 overflow-y-auto min-h-0">
+                      {/* Only show log/tree toggle and content, not the progress card */}
+                      {showBulkTree ? (
+                        <Card
+                          size="small"
+                          title={<span className="font-semibold text-sm flex items-center"><FolderOpenOutlined className="mr-2" />File/Folder Tree</span>}
+                          style={{ background: 'transparent', boxShadow: 'none', borderRadius: 12, width: '100%', color: darkMode ? '#fff' : '#222', border: 'none' }}
                         >
-                          {showFormatted ? (
-                            <>
-                              <div style={{ whiteSpace: 'pre-line', color: darkMode ? '#fff' : '#222', fontSize: '1em', fontFamily: 'inherit' }}>{documentContent}</div>
-                            </>
-                          ) : (
-                            <div style={{ whiteSpace: 'pre-line', color: darkMode ? '#fff' : '#222', fontSize: '1em', fontFamily: 'inherit' }}>{documentContent}</div>
-                          )}
-                        </div>
+                          <Tree
+                            treeData={bulkUploadTreeData}
+                            showIcon
+                            defaultExpandAll
+                            height={400}
+                            switcherIcon={({ expanded }) => expanded ? <DownOutlined /> : <RightOutlined />}
+                          />
+                        </Card>
                       ) : (
-                        <div className="text-gray-400 text-center mt-8 whitespace-pre-line">{NDA_MODEL}</div>
+                        <Card
+                          size="small"
+                          title={<span className="font-semibold text-sm flex items-center"><FileTextOutlined className="mr-2" />Upload Log</span>}
+                          style={{ background: 'transparent', boxShadow: 'none', borderRadius: 12, width: '100%', color: darkMode ? '#fff' : '#222', border: 'none' }}
+                        >
+                          <div className="space-y-2 text-xs">
+                            {bulkUploadLog.length === 0 ? (
+                              <div className="text-gray-400">No upload events yet.</div>
+                            ) : (
+                              bulkUploadLog.map((log, idx) => (
+                                <div key={idx} className="flex items-center gap-2">
+                                  <ArrowRightOutlined className="text-xs" />
+                                  <span>{log}</span>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </Card>
                       )}
                     </div>
+                  ) : (
+                    <>
+                      {!showSummaryView && (
+                      <div className="mb-4 px-5 py-3" style={{ borderBottom: darkMode ? '1px solid #333' : '1px solid #e5e7eb' }}>
+                          <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                              <div className="font-bold text-lg dark:text-white">
+                                {documentType === 'Draft'
+                                  ? 'SALES AGREEMENT - DRAFT VERSION 3.2'
+                                  : uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt'
+                                    ? 'Le Taco Truc - MSA 2025'
+                                    : 'S-Corp Non-Disclosure Agreement 2025'}
+                              </div>
+                          </div>
+                            <div className="flex gap-2">
+                              {uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt' ? (
+                          <Button
+                                  type="primary"
+                            size="middle"
+                                  style={{ background: '#FF5669', border: 'none' }}
+                                  onClick={() => {
+                                    setSelectedPage('dashboard');
+                                  }}
+                                  disabled={showSummaryView}
+                          >
+                                  Save in Concord
+                          </Button>
+                              ) : (
+                                <Button
+                                  type="primary"
+                                  size="middle"
+                                  style={{ background: '#FF5669', border: 'none' }}
+                                  onClick={() => {
+                                    setSelectedPage('dashboard');
+                                  }}
+                                  disabled={showSummaryView}
+                                >
+                                  Save in Concord
+                                </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      )}
+                      {showSummaryView ? (
+                        <div className="flex-1 p-6 overflow-y-auto">
+                          <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-semibold dark:text-white">Document Summary</h2>
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                type="text" 
+                                icon={<CloseOutlined />} 
+                                onClick={() => setShowSummaryView(false)}
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-6">
+                            <Card title="Description" size="small" bordered={false}>
+                              <div className="text-sm">
+                                {editableSummary.brief}
+                              </div>
+                            </Card>
+
+                            <Card title="Lifecycle" size="small" bordered={false}>
+                              <div className="space-y-2">
+                                <div className="flex justify-between items-center gap-2">
+                                  <span>Created:</span>
+                                  <span className="text-sm">
+                                    {dayjs(editableSummary.created, ['MMMM D, YYYY', 'MMM D, YYYY']).format('MMM D, YYYY')}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center gap-2">
+                                  <span>Last Modified:</span>
+                                  <span className="text-sm">
+                                    {dayjs(editableSummary.lastModified, ['MMMM D, YYYY', 'MMM D, YYYY']).format('MMM D, YYYY')}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center gap-2">
+                                  <span>Effective Date:</span>
+                                  <span className="text-sm">
+                                    {dayjs(editableSummary.effectiveDate || editableSummary.created, ['MMMM D, YYYY', 'MMM D, YYYY']).format('MMM D, YYYY')}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center gap-2">
+                                  <span>Renewal Date:</span>
+                                  <span className="text-sm">
+                                    {dayjs(editableSummary.renewalDate || editableSummary.created, ['MMMM D, YYYY', 'MMM D, YYYY']).add(1, 'year').format('MMM D, YYYY')}
+                                  </span>
+                                </div>
+                              </div>
+                            </Card>
+
+                            <Card title="Third Parties" size="small" bordered={false}>
+                              <div className="space-y-2">
+                                {editableSummary.thirdParties?.map((party, idx) => (
+                                  <div key={idx} className="flex items-center gap-2">
+                                    <Avatar size="small" style={{ backgroundColor: '#FF5669' }}>
+                                      {party.charAt(0).toUpperCase()}
+                                    </Avatar>
+                                    <span className="text-sm">{party}</span>
+                                  </div>
+                                )) || (
+                                  <div className="text-sm text-gray-400">No third parties identified</div>
+                                )}
+                              </div>
+                            </Card>
+
+                            <Card title="Signers" size="small" bordered={false}>
+                              <div className="space-y-2">
+                                {editableSummary.signers.map((signer, idx) => (
+                                  <div key={idx} className="flex items-center gap-2">
+                                    <Avatar size="small" style={{ backgroundColor: '#FF5669' }}>
+                                      {signer.charAt(0).toUpperCase()}
+                                    </Avatar>
+                                    <span className="text-sm">{signer}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </Card>
+
+                            {editableSummary.clauses.length > 0 && (
+                              <Card title="Clauses" size="small" bordered={false}>
+                                <Collapse ghost className="bg-transparent">
+                                  {editableSummary.clauses.map((clause, idx) => (
+                                    <Collapse.Panel 
+                                      key={idx} 
+                                      header={
+                                        <span className="font-semibold">
+                                          {clause.heading}
+                                        </span>
+                                      }
+                                    >
+                                      <div className="text-sm whitespace-pre-wrap">
+                                        {clause.text}
+                                      </div>
+                                    </Collapse.Panel>
+                                  ))}
+                                </Collapse>
+                              </Card>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex-1 rounded-2xl p-6 shadow-inner overflow-y-auto whitespace-pre-line text-gray-900 dark:text-gray-100 min-h-0" style={{ minHeight: 0 }}>
+                          {documentLoading ? (
+                            <div className="text-gray-400 text-center mt-8">Generating document...</div>
+                          ) : documentContent ? (
+                            <div
+                              style={{
+                                transition: 'opacity 0.3s',
+                                opacity: fade ? 1 : 0,
+                                height: '100%',
+                              }}
+                            >
+                              {showFormatted ? (
+                                <>
+                                  <div style={{ whiteSpace: 'pre-line', color: darkMode ? '#fff' : '#222', fontSize: '1em', fontFamily: 'inherit' }}>{documentContent}</div>
+                                </>
+                              ) : (
+                                <div style={{ whiteSpace: 'pre-line', color: darkMode ? '#fff' : '#222', fontSize: '1em', fontFamily: 'inherit' }}>{documentContent}</div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-gray-400 text-center mt-8 whitespace-pre-line">{NDA_MODEL}</div>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -1634,10 +2279,11 @@ function App() {
             {/* Always render file input and upload modal so upload works everywhere */}
             <input
               type="file"
-              multiple
               ref={fileInputRef}
               style={{ display: 'none' }}
               onChange={handleFileChange}
+              multiple
+              accept=".txt,.md,.csv,.json,.log,.rtf,.html,.xml"
             />
             <input
               type="file"
@@ -1652,6 +2298,20 @@ function App() {
               style={{ display: 'none' }}
               onChange={handleSignedTestFileChange}
               accept=".txt,.md,.csv,.json,.log,.rtf,.html,.xml"
+            />
+            <input
+              type="file"
+              ref={draftTestFileInputRef}
+              style={{ display: 'none' }}
+              onChange={handleDraftTestFileChange}
+              accept=".txt,.md,.csv,.json,.log,.rtf,.html,.xml"
+            />
+            <input
+              type="file"
+              ref={zipFileInputRef}
+              style={{ display: 'none' }}
+              accept=".zip"
+              onChange={handleZipFileChange}
             />
             <Modal
               title="Confirm Upload"
@@ -1722,11 +2382,20 @@ function App() {
                 />
               </div>
             </Modal>
+            {/* Save Modal */}
             <Modal
-              title="Select a folder to save your document"
+              title="Select folder to save"
               open={saveModalOpen}
-              onCancel={() => setSaveModalOpen(false)}
-              onOk={() => { setSaveModalOpen(false); /* handle save logic here */ }}
+              onCancel={() => {
+                setSaveModalOpen(false);
+                if (!selectedFolder) {
+                  setSelectedFolder(null);
+                }
+              }}
+              onOk={() => { 
+                setSaveModalOpen(false);
+                // Don't clear selectedFolder here as we want to display it
+              }}
               okText="Save"
               cancelText="Cancel"
             >
@@ -1743,6 +2412,45 @@ function App() {
                   <svg width="10" height="10" viewBox="0 0 10 10" style={{ display: 'inline', verticalAlign: 'middle' }}><polygon points="3,2 8,5 3,8" fill="currentColor" /></svg>
                 )}
               />
+            </Modal>
+            {/* Save Type Modal for Drafts */}
+            <Modal
+              title="How would you like to save this draft?"
+              open={saveTypeModalOpen}
+              onCancel={() => setSaveTypeModalOpen(false)}
+              footer={null}
+              centered
+            >
+              <div className="flex gap-4 justify-center">
+                <Card
+                  hoverable
+                  className={selectedSaveType === 'concord' ? 'ring-2 ring-[#FF5669]' : ''}
+                  style={{ width: 220, cursor: 'pointer', borderRadius: 12 }}
+                  onClick={() => {
+                    setSelectedSaveType('concord');
+                    setSaveTypeModalOpen(false);
+                    setTimeout(() => setSaveModalOpen(true), 200);
+                  }}
+                >
+                  <div className="font-semibold text-base mb-2">Live Concord document</div>
+                  <div className="text-xs text-gray-500 mb-2">Allow full editing of document content in Concord</div>
+                  <div className="text-xs text-gray-400">Best for collaborative workflows</div>
+                </Card>
+                <Card
+                  hoverable
+                  className={selectedSaveType === 'word' ? 'ring-2 ring-[#FF5669]' : ''}
+                  style={{ width: 220, cursor: 'pointer', borderRadius: 12 }}
+                  onClick={() => {
+                    setSelectedSaveType('word');
+                    setSaveTypeModalOpen(false);
+                    setTimeout(() => setSaveModalOpen(true), 200);
+                  }}
+                >
+                  <div className="font-semibold text-base mb-2">Word document</div>
+                  <div className="text-xs text-gray-500 mb-2">Conserve Word formatting and comments, but uneditable in Concord</div>
+                  <div className="text-xs text-gray-400">Best for legal review and external sharing</div>
+                </Card>
+              </div>
             </Modal>
           </Content>
         </Layout>
