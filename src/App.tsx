@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Input, Table, Tag, Avatar, Dropdown, Space, ConfigProvider, theme as antdTheme, Segmented, Select, Modal, Upload, message, Card, Collapse, Tree, Skeleton, DatePicker } from 'antd';
-import { PlusOutlined, UserOutlined, BellOutlined, FileTextOutlined, SettingOutlined, LogoutOutlined, BulbOutlined, BulbFilled, ArrowUpOutlined, PaperClipOutlined, CloseOutlined, MessageOutlined, ArrowRightOutlined, FolderOutlined, DownOutlined, RightOutlined, CalendarOutlined, TagsOutlined, FileZipOutlined, FolderOpenOutlined } from '@ant-design/icons';
+import { Layout, Menu, Button, Input, Table, Tag, Avatar, Dropdown, Space, ConfigProvider, theme as antdTheme, Segmented, Select, Modal, Upload, message, Card, Collapse, Tree, Skeleton, DatePicker, Tabs } from 'antd';
+import { PlusOutlined, UserOutlined, BellOutlined, FileTextOutlined, SettingOutlined, LogoutOutlined, BulbOutlined, BulbFilled, ArrowUpOutlined, PaperClipOutlined, CloseOutlined, MessageOutlined, ArrowRightOutlined, FolderOutlined, DownOutlined, RightOutlined, CalendarOutlined, TagsOutlined, FileZipOutlined, FolderOpenOutlined, CheckOutlined, EditOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { MenuInfo } from 'rc-menu/lib/interface';
 import dayjs from 'dayjs';
 import JSZip from 'jszip';
@@ -73,10 +73,7 @@ const userMenuItems = [
 const attachmentMenuItems = [
   { key: 'single', label: 'Single upload' },
   { key: 'bulk-zip', label: (<span><FileZipOutlined style={{ marginRight: 6 }} />Bulk upload</span>) },
-  { key: 'docusign', label: 'Import from Docusign', disabled: true },
-  { type: 'divider' as const },
-  { key: 'signed-test', label: 'Signed (test)' },
-  { key: 'draft-test', label: 'Draft (test)' }
+  { key: 'docusign', label: 'Import from Docusign', disabled: true }
 ];
 
 const statusFilters = ['All', 'Active', 'Pending', 'Expired'];
@@ -232,313 +229,6 @@ WITNESS my hand and official seal.
 
 [Notary signature]`;
 
-// Add the full text of the signed test document (replace the previous SIGNED_TEST_DOC)
-const SIGNED_TEST_DOC = `MASTER SERVICE AGREEMENT
-
-Agreement Number: MSA-2025-003
-Document Version: 2.1
-Initial Draft Date: February 28, 2025
-Legal Review Completed: March 8, 2025
-Final Negotiation Date: March 12, 2025
-Board Approval Date: March 14, 2025
-
-This Master Service Agreement ("Agreement") is entered into on March 15, 2025 ("Effective Date") by and between:
-
-S-Corp. inc., a California corporation with its principal place of business at 1847 Sunset Boulevard, Los Angeles, CA 90026 ("S-Corp" or "Company")
-
-AND
-
-Le Taco Truc LLC, a California limited liability company with its principal place of business at 3421 Venice Boulevard, Los Angeles, CA 90019 ("Le Taco Truc" or "Vendor")
-
-RECITALS
-
-WHEREAS, S-Corp provides event planning and catering services to high-profile clients including celebrities, entertainment industry professionals, and private individuals;
-
-WHEREAS, Le Taco Truc operates a mobile food service specializing in authentic Mexican cuisine and gourmet tacos;
-
-WHEREAS, S-Corp desires to engage Le Taco Truc as a preferred catering vendor for events requiring mobile food service;
-
-NOW, THEREFORE, in consideration of the mutual covenants contained herein, the parties agree as follows:
-
-1. SERVICES
-Le Taco Truc agrees to provide mobile catering services including:
-a) On-site food preparation and service via food truck
-b) Authentic Mexican cuisine including tacos, quesadillas, nachos, and beverages
-c) Customized menu options for dietary restrictions and preferences
-d) Professional uniformed staff for food service
-e) All necessary permits, licenses, and insurance for mobile food operations
-f) Setup and breakdown of service area
-
-2. TERM
-This Agreement shall commence on March 15, 2025 ("Commencement Date") and continue for a primary term of two (2) years, expiring on March 14, 2027 ("Initial Expiration Date"). 
-
-RENEWAL TERMS:
-- First Automatic Renewal: March 15, 2027 - March 14, 2028 (unless notice given by January 14, 2027)
-- Subsequent Renewals: Additional one-year terms
-- Maximum Agreement Duration: 10 years from Commencement Date
-- Next Review Date: September 15, 2025 (6-month performance review)
-- Annual Rate Review Date: Each March 1st
-- Pricing Adjustment Effective Date: Each April 1st
-
-3. PRICING AND PAYMENT TERMS
-
-a) Base Service Fee: $2,500 per event (up to 4 hours service, 100 guests)
-b) Additional Guests: $18 per person over 100 guests
-c) Extended Hours: $400 per hour beyond 4-hour base
-d) Travel Fee: $150 for locations beyond 25 miles from Le Taco Truc's base location
-e) Premium Menu Items: As per attached Exhibit A - Menu Pricing
-f) Payment Terms: Net 15 days from invoice date
-g) Late Payment: 1.5% monthly service charge on overdue amounts
-
-4. BOOKING AND SCHEDULING
-
-BOOKING DEADLINES:
-a) Standard Events: Minimum 72 hours advance notice (by 5:00 PM, 3 business days prior)
-b) Premium Events (100+ guests): Minimum 5 business days advance notice
-c) Holiday/Peak Season Events: Minimum 14 days advance notice
-d) Rush bookings (less than 72 hours) subject to 25% surcharge if accepted
-
-SCHEDULING COMMITMENTS:
-- Le Taco Truc agrees to prioritize S-Corp events over other bookings when possible
-- Preferred booking windows: Tuesday-Sunday, 11:00 AM - 8:00 PM
-- Peak season dates (Memorial Day - Labor Day): Higher availability commitment required
-- Holiday blackout dates: December 24-26, January 1, July 4 (premium rates apply)
-
-CANCELLATION POLICY WITH DATES:
-e) Cancellation more than 7 days prior: No charge
-f) Cancellation 3-7 days prior: 25% of agreed service fee
-g) Cancellation 48-72 hours prior: 50% of agreed service fee  
-h) Cancellation within 48 hours: 75% of agreed service fee
-i) Cancellation within 24 hours or no-show: 100% of agreed service fee
-
-HISTORICAL PERFORMANCE BENCHMARKS:
-- Average monthly bookings expected: 8-12 events
-- Peak season target: 15-20 events per month
-- Minimum quarterly bookings to maintain preferred status: 20 events
-
-5. PERFORMANCE STANDARDS
-
-Le Taco Truc agrees to:
-a) Arrive at event location 30 minutes prior to service time
-b) Maintain food truck in clean, professional appearance
-c) Provide staff in clean, branded uniforms
-d) Maintain all required health department certifications
-e) Carry minimum $2M general liability insurance
-f) Follow all client-specific requirements and dietary restrictions
-g) Maintain confidentiality regarding client identity and event details
-
-6. QUALITY ASSURANCE
-
-a) All food must be prepared to health department standards
-b) Fresh ingredients used daily - no day-old prepared foods
-c) Maintain proper food temperatures during transport and service
-d) Accommodate special dietary needs including vegan, gluten-free, and keto options
-e) S-Corp reserves right to inspect food preparation and truck cleanliness
-
-7. EXCLUSIVITY AND NON-COMPETE
-
-During the term of this Agreement:
-a) S-Corp grants Le Taco Truc preferred vendor status for Mexican cuisine mobile catering
-b) Le Taco Truc agrees not to directly solicit S-Corp's clients for independent catering services
-c) Le Taco Truc may accept direct bookings from S-Corp clients only with S-Corp's written consent
-
-8. INSURANCE AND LIABILITY
-
-INSURANCE REQUIREMENTS:
-a) Le Taco Truc shall maintain the following insurance coverage:
-   - General Liability: $2,000,000 per occurrence
-   - Product Liability: $1,000,000 per occurrence  
-   - Commercial Auto: $1,000,000 combined single limit
-   - Workers' Compensation: As required by state law
-   - Equipment Coverage: $150,000 (food truck and equipment)
-
-INSURANCE COMPLIANCE DATES:
-b) Initial Certificate Due: March 1, 2025 (provided)
-c) Annual Renewal Date: March 1st of each year
-d) Certificate Expiration Reminder: 30 days prior to expiration
-e) Grace Period for Renewal: 10 days maximum
-f) S-Corp to be named as additional insured on all policies
-g) Insurance carrier rating requirement: A.M. Best rating of A- or better
-
-CLAIMS HISTORY REVIEW:
-- Last 3 years claims history provided: February 15, 2025
-- Next claims review date: March 1, 2026
-- Maximum acceptable claims per year: 2 non-catastrophic incidents
-
-9. CONFIDENTIALITY
-
-Le Taco Truc acknowledges that it may have access to confidential information about S-Corp's clients and agrees to:
-a) Maintain strict confidentiality regarding client identities
-b) Not photograph, record, or document events without permission
-c) Prohibit staff from using personal devices during events
-d) Not disclose event details, guest information, or client preferences
-
-10. FORCE MAJEURE
-
-Neither party shall be liable for delays or failures in performance due to circumstances beyond reasonable control, including but not limited to: acts of God, government regulations, strikes, or equipment failure.
-
-11. TERMINATION
-
-TERMINATION CONDITIONS:
-Either party may terminate this Agreement under the following circumstances:
-
-FOR CAUSE TERMINATION:
-a) Material breach with 30 days written notice and opportunity to cure
-b) Notice period begins on date of certified mail delivery
-c) Cure period deadline: 30 calendar days from notice receipt
-d) If not cured by deadline, termination effective immediately thereafter
-
-FOR CONVENIENCE TERMINATION:
-e) Either party may terminate with 60 days written notice
-f) Termination effective date: 60 days from notice receipt date
-g) No penalty for convenience termination after initial 12-month period
-
-IMMEDIATE TERMINATION EVENTS:
-h) Material breach of confidentiality provisions
-i) Loss of required business licenses or permits
-j) Bankruptcy filing or insolvency proceedings
-k) Failure to maintain required insurance coverage for more than 10 days
-l) Three or more event no-shows within any 6-month period
-
-POST-TERMINATION OBLIGATIONS:
-- Final invoice due within 15 days of termination
-- Equipment return deadline: 30 days from termination
-- Confidentiality obligations survive termination indefinitely
-- Non-compete restrictions continue for 6 months post-termination
-
-12. GOVERNING LAW
-
-This Agreement shall be governed by California state law and any disputes shall be resolved in Los Angeles County courts.
-
-13. ENTIRE AGREEMENT
-
-This Agreement, including all exhibits, constitutes the entire agreement between the parties and supersedes all prior negotiations and agreements.
-
-IN WITNESS WHEREOF, the parties have executed this Agreement on the date first written above.
-
-DOCUMENT EXECUTION TIMELINE:
-Initial Proposal Submitted: February 10, 2025
-First Contract Draft: February 28, 2025  
-Negotiation Period: March 1-12, 2025
-Legal Review Completed: March 8, 2025
-Final Terms Agreed: March 12, 2025
-Internal Approvals Completed: March 14, 2025
-Contract Signing Date: March 15, 2025
-Effective Date: March 15, 2025
-First Performance Date: March 22, 2025 (Celebrity Birthday Party - Marina del Rey)
-
-S-CORP. INC.
-
-By: /s/ Marcus Rodriguez
-Name: Marcus Rodriguez
-Title: Chief Operating Officer
-Date: March 15, 2025, 2:30 PM PST
-Employee ID: SCO-447
-Authorization Code: MR-2025-MSA-003
-
-LE TACO TRUC LLC
-
-By: /s/ Sofia Hernandez
-Name: Sofia Hernandez
-Title: Managing Member
-Date: March 15, 2025, 2:35 PM PST
-Business License: LA-FT-2024-0892
-Tax ID: 88-1234567
-
-WITNESS SIGNATURES:
-
-/s/ Jennifer Kim
-Jennifer Kim, Event Coordinator
-S-Corp. inc.
-Date: March 15, 2025, 2:40 PM PST
-Employee ID: SCO-221
-Years with Company: 3.5 years
-
-/s/ Carlos Hernandez
-Carlos Hernandez, Head Chef & Co-Owner
-Le Taco Truc LLC
-Date: March 15, 2025, 2:45 PM PST
-Culinary License: CA-CUL-2023-4456
-ServSafe Certified: Valid through August 2026
-
-NOTARIZATION:
-
-State of California
-County of Los Angeles
-
-On March 15, 2025, before me, Patricia Wong, Notary Public, personally appeared Marcus Rodriguez and Sofia Hernandez, who proved to me on the basis of satisfactory evidence to be the persons whose names are subscribed to the within instrument and acknowledged to me that they executed the same in their authorized capacity.
-
-I certify under PENALTY OF PERJURY under the laws of the State of California that the foregoing paragraph is true and correct.
-
-WITNESS my hand and official seal.
-
-/s/ Patricia Wong
-Patricia Wong, Notary Public
-Commission Number: 2387542
-My Commission Expires: December 31, 2027
-Seal Affixed: March 15, 2025, 3:15 PM PST
-
-EXHIBIT A - MENU PRICING
-(Effective March 15, 2025 - March 14, 2026)
-
-PRICING HISTORY & ADJUSTMENTS:
-- Initial Pricing Effective: March 15, 2025
-- Mid-Contract Review Date: September 15, 2025
-- Next Price Adjustment: April 1, 2026 (max 5% increase)
-- Peak Season Surcharge Period: May 1 - September 30 (15% premium)
-- Holiday Premium Dates: Memorial Day, July 4th, Labor Day (25% premium)
-
-STANDARD MENU ITEMS (Included in Base Package):
-- Classic Beef Tacos: $4.50 each (was $4.25 in 2024)
-- Chicken Tinga Tacos: $4.25 each (no change from 2024)
-- Carnitas Tacos: $4.75 each (was $4.50 in 2024)
-- Vegetarian Black Bean Tacos: $4.00 each (new item as of 2025)
-- Cheese Quesadillas: $6.00 each (was $5.75 in 2024)
-- Chips and Guacamole: $8.00 per serving (was $7.50 in 2024)
-- Mexican Rice and Beans: $3.50 per serving (no change)
-- Agua Frescas (Horchata, Tamarindo): $3.00 each (was $2.75 in 2024)
-
-PREMIUM MENU ITEMS (Additional Cost):
-- Lobster Tacos: $12.00 each (seasonal: May-October)
-- Prime Rib Tacos: $8.50 each (available year-round)
-- Grilled Salmon Tacos: $9.00 each (available year-round)
-- Truffle Quesadillas: $14.00 each (limited availability - advance order required)
-- Craft Beer Selection: $6.00-$8.00 each (permit renewal: annually)
-- Premium Margaritas: $12.00 each (bartender service required)
-
-DIETARY ACCOMMODATION OPTIONS:
-- Gluten-Free Corn Tortillas: No additional charge (certified supplier since 2024)
-- Vegan Protein Options: $1.00 additional per taco (Beyond Meat partnership)
-- Keto Bowl (no tortilla): $2.00 additional (introduced January 2025)
-- Organic Ingredients: 15% surcharge on affected items (certification valid through 2026)
-
-VOLUME DISCOUNTS (Applied automatically):
-- 150+ guests: 5% discount on food items
-- 200+ guests: 8% discount on food items  
-- 300+ guests: 10% discount on food items
-- Monthly volume over 500 servings: 3% additional discount
-
-PAYMENT SCHEDULE FOR RECURRING EVENTS:
-- Weekly events: Net 15 payment terms
-- Monthly events: Net 20 payment terms
-- Seasonal contracts: 50% deposit, balance due within 30 days
-- Annual retainer option: 10% discount, paid quarterly
-
-HISTORICAL PERFORMANCE DATA:
-- Average event size: 125 guests
-- Most popular items: Chicken Tinga (35%), Carnitas (30%), Beef (25%)
-- Customer satisfaction rating: 4.8/5.0 (based on 247 events, 2024)
-- On-time arrival rate: 98.2% (2024 performance)
-- Health inspection scores: 98-100 (last 3 inspections)
-
-CONTRACT MILESTONES:
-- First 90 days: Probationary period with monthly check-ins
-- 6-month review: September 15, 2025
-- 12-month performance evaluation: March 15, 2026
-- 18-month renewal discussion: September 15, 2026
-- Contract expiration: March 14, 2027
-`;
-
 // Add a spinning loader component
 const Spinner = () => (
   <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40 }}>
@@ -561,227 +251,7 @@ const Spinner = () => (
   </span>
 );
 
-// Add the full text of the draft test document
-const DRAFT_TEST_DOC = `SALES AGREEMENT - DRAFT VERSION 3.2
-**CONFIDENTIAL - INTERNAL REVIEW ONLY**
 
-Document Status: IN PROGRESS - LEGAL REVIEW PENDING
-Last Modified: June 12, 2025, 4:47 PM EST
-Modified By: Sandra Mitchell, Legal Counsel (Wayne Enterprises)
-Next Review Meeting: June 19, 2025, 2:00 PM EST
-
-[ATTORNEY NOTES: Need to finalize delivery terms in Section 6. Confirm liability caps with Risk Management. JI requesting changes to payment schedule - under review. - SM]
-
-This Sales Agreement ("Agreement") is entered into on [DATE TO BE INSERTED], 2025 ("Effective Date") by and between:
-
-JOKER INDUSTRIES LLC, a Delaware limited liability company with its principal place of business at 1247 Industrial Boulevard, Gotham City, NY 10001 ("Seller" or "Joker Industries")
-
-AND
-
-WAYNE ENTERPRISES, INC., a Delaware corporation with its principal place of business at Wayne Tower, 1007 Mountain Drive, Gotham City, NY 10019 ("Buyer" or "Wayne Enterprises")
-
-RECITALS
-
-WHEREAS, Joker Industries specializes in the manufacture and distribution of advanced chemical processing equipment and industrial automation systems;
-
-WHEREAS, Wayne Enterprises operates multiple manufacturing facilities requiring upgraded chemical processing capabilities for its Applied Sciences Division;
-
-WHEREAS, Buyer desires to purchase certain equipment and services from Seller as detailed herein;
-
-NOW, THEREFORE, in consideration of the mutual covenants contained herein, the parties agree as follows:
-
-1. PRODUCTS AND SERVICES
-
-Seller agrees to provide the following equipment and services ("Products"):
-
-a) PRIMARY EQUIPMENT PACKAGE:
-   - Model XJ-4400 Chemical Processing Unit (Qty: 3) - $847,500 each
-   - Model XJ-2200 Filtration System (Qty: 2) - $245,000 each  
-   - Model XJ-6600 Automated Control System (Qty: 1) - $675,000
-   - Installation Hardware and Mounting Systems - $125,000
-
-b) PROFESSIONAL SERVICES:
-   - On-site Installation (Est. 120 hours) - $285 per hour = $34,200
-   - Technical Training (40 hours) - $225 per hour = $9,000
-   - System Integration and Testing - $85,000
-   - [PENDING: Need final quote for extended warranty options - Finance reviewing 3yr vs 5yr]
-
-c) CONSUMABLES AND SPARE PARTS (12-month supply):
-   - Filter Cartridges (Model F-440) - 24 units at $425 each = $10,200
-   - Chemical Sensors (Model CS-22) - 36 units at $185 each = $6,660
-   - [INCOMPLETE: Awaiting parts list from Engineering - Target: <$25,000 total]
-
-2. PURCHASE PRICE AND PAYMENT TERMS
-
-TOTAL CONTRACT VALUE: $3,037,560 (subject to final consumables pricing)
-
-PAYMENT SCHEDULE:
-a) Contract Execution: $607,512 (20% deposit) - Due within 5 business days
-b) Equipment Delivery: $1,215,024 (40%) - Due upon delivery confirmation
-c) Installation Completion: $607,512 (20%) - Due upon successful installation
-d) System Acceptance: $607,512 (20%) - Due within 30 days of acceptance testing
-
-[FINANCE NOTE: JI requesting 25/35/25/15 split instead. Under review with Treasury. Current terms reflect standard Wayne procurement policy. - B.Kyle, Procurement]
-
-PAYMENT TERMS:
-- All payments due within Net 30 days from invoice date
-- Late payments subject to 1.5% monthly service charge
-- Early payment discount: 2% if paid within 10 days
-- Wire transfer details to be provided separately
-
-3. DELIVERY AND INSTALLATION
-
-DELIVERY TIMELINE:
-- Equipment manufacturing lead time: 8-10 weeks from contract execution
-- Estimated delivery date: [TO BE CALCULATED based on final execution date]
-- Installation window: 2 weeks following delivery
-- Target project completion: [PENDING FINAL SCHEDULE]
-
-DELIVERY TERMS:
-- FOB Destination to Wayne Enterprises Facility 7 (R&D Complex)
-- Address: 4421 Research Drive, Gotham City, NY 10024
-- Seller responsible for all shipping costs and insurance
-- [LEGAL NOTE: Confirm insurance coverage amounts - current $2M may be insufficient for total shipment value]
-
-4. WARRANTIES AND GUARANTEES
-
-EQUIPMENT WARRANTIES:
-a) Manufacturing defects: 24 months from installation completion
-b) Performance guarantee: Equipment shall meet specifications outlined in Exhibit A
-c) [DRAFT - UNDER NEGOTIATION]: Uptime guarantee of 98.5% during first 12 months
-d) Parts availability guarantee: 10 years for standard components
-
-[TECHNICAL NOTE: Specifications in Exhibit A still being finalized by Applied Sciences team. Dr. Fox reviewing compatibility with existing systems. - Applied Sciences]
-
-5. ACCEPTANCE TESTING
-
-ACCEPTANCE CRITERIA:
-- Equipment shall pass all factory acceptance tests (FAT)
-- Site acceptance testing (SAT) within 30 days of installation
-- Performance metrics must meet minimum thresholds per Exhibit B
-- [INCOMPLETE: Define specific test procedures and success criteria]
-
-REJECTION RIGHTS:
-- Buyer may reject equipment failing acceptance criteria
-- Seller has 30 days to remedy defects
-- [DISPUTE RESOLUTION: Arbitration vs litigation - Legal reviewing options]
-
-6. DELIVERY AND RISK OF LOSS
-
-[SECTION INCOMPLETE - UNDER LEGAL REVIEW]
-[PLACEHOLDER: Need to finalize shipping terms, insurance requirements, and title transfer provisions]
-
-7. INTELLECTUAL PROPERTY
-
-PROPRIETARY RIGHTS:
-a) Seller retains all IP rights in equipment design and software
-b) Buyer receives limited license for operational use only
-c) Reverse engineering prohibited
-d) [PENDING: Review of Wayne Enterprises standard IP protections]
-
-CONFIDENTIALITY:
-- Both parties acknowledge exchange of confidential information
-- Standard mutual NDA executed February 15, 2025 (Ref: NDA-2025-047)
-- [CROSS-REFERENCE: Ensure alignment with existing confidentiality terms]
-
-8. LIMITATION OF LIABILITY
-
-[SECTION DRAFT - UNDER REVIEW]
-TO THE MAXIMUM EXTENT PERMITTED BY LAW:
-a) Seller's total liability limited to contract value ($3,037,560)
-b) No liability for consequential, indirect, or punitive damages
-c) [LEGAL REVIEW PENDING: Wayne standard liability terms vs JI proposed caps]
-d) Business interruption coverage: [AMOUNT TO BE DETERMINED]
-
-9. FORCE MAJEURE
-
-Standard force majeure provisions shall apply including:
-- Acts of God, natural disasters
-- Government regulations or actions  
-- Labor disputes, strikes
-- Supply chain disruptions
-- [ADD: Cyber attacks, pandemic-related delays per 2025 business standards]
-
-10. GOVERNING LAW AND DISPUTE RESOLUTION
-
-- Governed by Delaware state law
-- [UNDER DISCUSSION: Arbitration vs court jurisdiction]
-- Venue: [TO BE DETERMINED - Gotham City vs Wilmington, DE]
-
-11. AUTHORIZED REPRESENTATIVES
-
-JOKER INDUSTRIES:
-Primary Contact: Marcus Thorne, VP Sales
-Phone: (555) 847-3920
-Email: m.thorne@jokerindustries.com
-Contract Authority: Up to $5,000,000
-
-Technical Contact: Dr. Sarah Chen, Chief Engineer  
-Phone: (555) 847-3945
-Email: s.chen@jokerindustries.com
-
-WAYNE ENTERPRISES:
-Primary Contact: Barbara Kyle, Director of Procurement
-Phone: (555) 555-0847
-Email: b.kyle@wayneenterprises.com
-Contract Authority: Approved up to $3,500,000
-
-Technical Contact: Dr. Lucius Fox, Applied Sciences Division
-Phone: (555) 555-0901
-Email: l.fox@wayneenterprises.com
-
-Legal Counsel: Sandra Mitchell, Senior Legal Counsel
-Phone: (555) 555-0723
-Email: s.mitchell@wayneenterprises.com
-
-12. SIGNATURES - PENDING FINAL REVIEW
-
-[SIGNATURE BLOCKS TO BE COMPLETED UPON FINAL APPROVAL]
-
-REQUIRED SIGNATURES - JOKER INDUSTRIES:
-- CEO/President: _________________ (Required for contracts >$2M)
-- VP Sales: _________________ 
-- Legal Counsel: _________________ (If available)
-
-REQUIRED SIGNATURES - WAYNE ENTERPRISES:
-- CFO Approval Required: _________________ (Contracts >$3M)
-- Director of Procurement: _________________
-- Division Head (Applied Sciences): _________________
-- Legal Counsel Review: _________________
-
-[EXECUTION CHECKLIST:
-□ Final technical specifications approved (Dr. Fox)
-□ Financial terms approved (Treasury)
-□ Legal review completed (S. Mitchell)
-□ Risk assessment completed (Risk Management)
-□ Board notification sent (for >$3M contracts)
-□ Insurance verification completed
-□ Background check on Joker Industries completed
-□ Vendor registration in Wayne procurement system
-]
-
-DOCUMENT HISTORY:
-Version 1.0: May 22, 2025 - Initial draft (M. Thorne, Joker Industries)
-Version 2.0: May 30, 2025 - Wayne legal review (S. Mitchell)
-Version 2.1: June 5, 2025 - Technical specifications added (Dr. Fox)
-Version 3.0: June 10, 2025 - Financial terms negotiated (B. Kyle)
-Version 3.1: June 11, 2025 - Insurance provisions added (Risk Mgmt)
-Version 3.2: June 12, 2025 - Current version under review
-
-PENDING ITEMS FOR COMPLETION:
-1. Final consumables pricing (Engineering - Due: June 16)
-2. Delivery schedule confirmation (Logistics - Due: June 17)
-3. Insurance coverage amounts (Risk Management - Due: June 18)
-4. Final liability terms (Legal - Due: June 19)
-5. Acceptance testing procedures (Applied Sciences - Due: June 20)
-
-ESTIMATED COMPLETION DATE: June 25, 2025
-TARGET EXECUTION DATE: June 30, 2025
-
----
-CONFIDENTIAL DOCUMENT - NOT FOR DISTRIBUTION
-Wayne Enterprises Legal Department
-Document Control Number: WE-LEGAL-2025-0847`;
 
 function App() {
   const [search, setSearch] = useState('');
@@ -811,7 +281,9 @@ function App() {
   const [customMessage, setCustomMessage] = React.useState('');
   const [stage, setStage] = useState('template');
   const [showSummaryView, setShowSummaryView] = useState(false);
+  const [showDocumentView, setShowDocumentView] = useState(true);
   const [msaSummary, setMsaSummary] = useState<{
+    title: string;
     created: string;
     lastModified: string;
     effectiveDate: string;
@@ -820,6 +292,10 @@ function App() {
     signers: string[];
     thirdParties: string[];
     tags: string[];
+    agreementCategory: string;
+    documentType: string;
+    totalAgreementValue: string;
+    totalAgreementDescription: string;
   } | null>(null);
   const [msaClauses, setMsaClauses] = useState<{ heading: string, text: string }[]>([]);
   const sCorpEmployees = [
@@ -830,8 +306,6 @@ function App() {
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const singleFileInputRef = React.useRef<HTMLInputElement>(null);
-  const signedTestFileInputRef = React.useRef<HTMLInputElement>(null);
-  const draftTestFileInputRef = React.useRef<HTMLInputElement>(null);
   const zipFileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Map employee names to avatar image URLs
@@ -869,16 +343,6 @@ function App() {
         fileInputRef.current.value = '';
         fileInputRef.current.click();
       }
-    } else if (key === 'signed-test') {
-      if (signedTestFileInputRef.current) {
-        signedTestFileInputRef.current.value = '';
-        signedTestFileInputRef.current.click();
-      }
-    } else if (key === 'draft-test') {
-      if (draftTestFileInputRef.current) {
-        draftTestFileInputRef.current.value = '';
-        draftTestFileInputRef.current.click();
-      }
     }
   };
 
@@ -895,119 +359,6 @@ function App() {
     setTimeout(() => setStagedStep(1), 600);
     setTimeout(() => setStagedStep(2), 1200);
     setTimeout(() => setStagedStep(3), 1800);
-  };
-
-  const handleSignedTestFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const text = await file.text();
-    setDocumentType('Signed');
-    setDocumentContent(text);
-    setUploadedFiles([file]);
-    setSelectedPage('chat');
-    setChatMessages([
-      { role: 'assistant', content: 'We detected that your document is a "Signed contract" for a "Master Service Agreement." See the data we extracted below in your summary card.' }
-    ]);
-    revealSystemSequence();
-    setStage('signed');
-    // Signed-specific summary extraction
-    const createdMatch = text.match(/Initial Draft Date: ([^\n]+)/);
-    const lastModifiedMatch = text.match(/Final Terms Agreed: ([^\n]+)/);
-    const status = 'Signed';
-    const signers: string[] = [];
-    const sCorpSignerMatch = text.match(/By: \/s\/ ([^\n]+)\nName: ([^\n]+)/);
-    if (sCorpSignerMatch) signers.push(sCorpSignerMatch[2]);
-    const vendorNameMatch = text.match(/LE TACO TRUC LLC[\s\S]+By: \/s\/ ([^\n]+)\nName: ([^\n]+)/);
-    if (vendorNameMatch) signers.push(vendorNameMatch[2]);
-    const tags = ['MSA', 'Signed', 'Vendor', 'S-Corp', '2025'];
-    setMsaSummary({
-      created: createdMatch ? createdMatch[1] : '',
-      lastModified: lastModifiedMatch ? lastModifiedMatch[1] : '',
-      effectiveDate: createdMatch ? createdMatch[1] : '',
-      renewalDate: createdMatch ? createdMatch[1] : '',
-      status,
-      signers,
-      thirdParties: ['Le Taco Truc', 'Acme Corp'],
-      tags,
-    });
-    // Extract clause headings and full text
-    if (file.name === 'scorp_letacotruck_msa (1).txt') {
-      setStage('signed');
-      // Parse summary data from the file text
-      const createdMatch = text.match(/Initial Draft Date: ([^\n]+)/);
-      const lastModifiedMatch = text.match(/Final Terms Agreed: ([^\n]+)/);
-      const status = 'Signed';
-      const signers: string[] = [];
-      const sCorpSignerMatch = text.match(/By: \/s\/ ([^\n]+)\nName: ([^\n]+)/);
-      const vendorSignerMatch = text.match(/By: \/s\/ ([^\n]+)\nName: ([^\n]+)/g);
-      if (sCorpSignerMatch) signers.push(sCorpSignerMatch[2]);
-      const vendorNameMatch = text.match(/LE TACO TRUC LLC[\s\S]+By: \/s\/ ([^\n]+)\nName: ([^\n]+)/);
-      if (vendorNameMatch) signers.push(vendorNameMatch[2]);
-      // Tags: MSA, Signed, Vendor, S-Corp, 2025
-      const tags = ['MSA', 'Signed', 'Vendor', 'S-Corp', '2025'];
-      setMsaSummary({
-        created: createdMatch ? createdMatch[1] : '',
-        lastModified: lastModifiedMatch ? lastModifiedMatch[1] : '',
-        effectiveDate: createdMatch ? createdMatch[1] : '',
-        renewalDate: createdMatch ? createdMatch[1] : '',
-        status,
-        signers,
-        thirdParties: ['Le Taco Truc', 'Acme Corp'],
-        tags,
-      });
-      // Extract clause headings and full text
-      const clauseRegex = /^(\d+\. .+?)(?:\n|\r\n)([\s\S]*?)(?=^\d+\. |^IN WITNESS|^EXHIBIT|\Z)/gm;
-      const clauses: { heading: string, text: string }[] = [];
-      let match;
-      while ((match = clauseRegex.exec(text)) !== null) {
-        clauses.push({ heading: match[1].trim(), text: match[2].trim() });
-      }
-      setMsaClauses(clauses);
-    } else {
-      setStage('template');
-      setMsaSummary(null);
-      setMsaClauses([]);
-    }
-  };
-
-  const handleDraftTestFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const text = await file.text();
-    setDocumentType('Draft');
-    setDocumentContent(text);
-    setUploadedFiles([file]);
-    setSelectedPage('chat');
-    setChatMessages([
-      { role: 'assistant', content: 'We detected that your document is a "Draft contract" for a "Sales Agreement." See the data we extracted below in your summary card.' }
-    ]);
-    revealSystemSequence();
-    setStage('draft');
-    // Extract summary data from the draft doc
-    const createdMatch = text.match(/Version ([\d.]+): ([A-Za-z]+ \d{1,2}, \d{4})/);
-    const lastModifiedMatch = text.match(/Last Modified: ([^\n]+)/);
-    const status = 'Draft';
-    const signers: string[] = [];
-    // No signers in draft, but could parse if needed
-    const tags = ['Sales Agreement', 'Draft', 'Joker Industries', 'Wayne Enterprises', '2025'];
-    setMsaSummary({
-      created: createdMatch ? createdMatch[2] : '',
-      lastModified: lastModifiedMatch ? lastModifiedMatch[1] : '',
-      effectiveDate: createdMatch ? createdMatch[2] : '',
-      renewalDate: createdMatch ? createdMatch[2] : '',
-      status,
-      signers,
-      thirdParties: ['Le Taco Truc', 'Acme Corp'],
-      tags,
-    });
-    // Extract clause headings and full text
-    const clauseRegex = /^(\d+\. .+?)(?:\n|\r\n)([\s\S]*?)(?=^\d+\. |^---|^CONFIDENTIAL DOCUMENT|\Z)/gm;
-    const clauses: { heading: string, text: string }[] = [];
-    let match;
-    while ((match = clauseRegex.exec(text)) !== null) {
-      clauses.push({ heading: match[1].trim(), text: match[2].trim() });
-    }
-    setMsaClauses(clauses);
   };
 
   const filteredData = contractData.filter(contract => {
@@ -1055,6 +406,8 @@ function App() {
       { role: 'assistant', content: 'We detected that your document is an "Agreement template" for a "Non-Disclosure Agreement." Please review the document and proceed as needed.' }
     ]);
     revealSystemSequence();
+    // Set initial document title
+    setDocumentTitle('S-Corp Non-Disclosure Agreement 2025');
   };
 
   const handleRemoveFile = (index: number) => {
@@ -1246,6 +599,15 @@ function App() {
   // Add click handler for the summary card
   const handleSummaryCardClick = () => {
     setShowSummaryView(true);
+    setShowDocumentView(false);
+    setIsDocumentPanelVisible(true);
+  };
+
+  // Add click handler for the document card
+  const handleDocumentCardClick = () => {
+    setShowSummaryView(false);
+    setShowDocumentView(true);
+    setIsDocumentPanelVisible(true);
   };
 
   const [saveModalOpen, setSaveModalOpen] = useState(false);
@@ -1273,20 +635,27 @@ function App() {
 
   // Add state for editable summary fields
   interface EditableSummary {
+    title: string;
     brief: string;
     created: string;
     lastModified: string;
     effectiveDate: string;
     renewalDate: string;
     status: string;
-    signers: string[];
     thirdParties: string[];
     tags: string[];
     clauses: { heading: string; text: string; }[];
     newTag: string;
+    agreementCategory: string;
+    documentType: string;
+    totalAgreementValue: string;
+    totalAgreementDescription: string;
   }
 
   const [editableSummary, setEditableSummary] = useState<EditableSummary>({
+    title: uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt'
+      ? 'Master Service Agreement - Le Taco Truc'
+      : 'Non-Disclosure Agreement',
     brief: uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt'
       ? 'This Master Service Agreement (MSA) establishes a signed contract between S-Corp and Le Taco Truc for mobile catering services, including real lifecycle and signature data.'
       : 'This Non-Disclosure Agreement (NDA) is designed to protect confidential information shared between S-Corp and their clients. It covers various aspects of confidentiality including personal information, event details, and business relationships.',
@@ -1295,17 +664,23 @@ function App() {
     effectiveDate: msaSummary?.effectiveDate || 'March 15, 2024',
     renewalDate: msaSummary?.renewalDate || 'March 15, 2024',
     status: msaSummary?.status || 'Template',
-    signers: msaSummary?.signers || [''],
     thirdParties: msaSummary?.thirdParties || ['Le Taco Truc', 'Acme Corp'],
     tags: msaSummary?.tags || ['NDA', 'Template', 'Legal', 'Confidentiality', 'Client Services'],
     clauses: msaClauses?.map(c => ({ heading: c.heading, text: c.text })) || [],
     newTag: '',
+    agreementCategory: msaSummary?.agreementCategory || (uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt' ? 'Service Agreement' : 'Confidentiality'),
+    documentType: msaSummary?.documentType || (uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt' ? 'Master Service Agreement' : 'Non-Disclosure Agreement'),
+    totalAgreementValue: msaSummary?.totalAgreementValue || (uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt' ? '$30,000' : 'N/A'),
+    totalAgreementDescription: msaSummary?.totalAgreementDescription || (uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt' ? 'Base service fee of $2,500 per event (estimated 12 events annually)' : 'No monetary value - confidentiality agreement'),
   });
   const [editing, setEditing] = useState(false);
 
   // Add effect to reset editableSummary when msaSummary, msaClauses, or uploadedFiles change
   React.useEffect(() => {
     setEditableSummary({
+      title: uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt'
+        ? 'Master Service Agreement - Le Taco Truc'
+        : 'Non-Disclosure Agreement',
       brief: uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt'
         ? 'This Master Service Agreement (MSA) establishes a signed contract between S-Corp and Le Taco Truc for mobile catering services, including real lifecycle and signature data.'
         : 'This Non-Disclosure Agreement (NDA) is designed to protect confidential information shared between S-Corp and their clients. It covers various aspects of confidentiality including personal information, event details, and business relationships.',
@@ -1314,17 +689,24 @@ function App() {
       effectiveDate: msaSummary?.effectiveDate || 'March 15, 2024',
       renewalDate: msaSummary?.renewalDate || 'March 15, 2024',
       status: msaSummary?.status || 'Template',
-      signers: msaSummary?.signers || [''],
       thirdParties: msaSummary?.thirdParties || ['Le Taco Truc', 'Acme Corp'],
       tags: msaSummary?.tags || ['NDA', 'Template', 'Legal', 'Confidentiality', 'Client Services'],
       clauses: msaClauses?.map(c => ({ heading: c.heading, text: c.text })) || [],
       newTag: '',
+      agreementCategory: msaSummary?.agreementCategory || (uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt' ? 'Service Agreement' : 'Confidentiality'),
+      documentType: msaSummary?.documentType || (uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt' ? 'Master Service Agreement' : 'Non-Disclosure Agreement'),
+      totalAgreementValue: msaSummary?.totalAgreementValue || (uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt' ? '$30,000' : 'N/A'),
+      totalAgreementDescription: msaSummary?.totalAgreementDescription || (uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt' ? 'Base service fee of $2,500 per event (estimated 12 events annually)' : 'No monetary value - confidentiality agreement'),
     });
   }, [msaSummary, msaClauses, uploadedFiles]);
 
   // Add state for save type modal
   const [saveTypeModalOpen, setSaveTypeModalOpen] = useState(false);
   const [selectedSaveType, setSelectedSaveType] = useState<'concord' | 'word' | null>(null);
+
+  // Add state for Save in Concord modal (for all stages)
+  const [saveConcordModalOpen, setSaveConcordModalOpen] = useState(false);
+  const [selectedConcordType, setSelectedConcordType] = useState<'live' | 'word' | null>(null);
 
   // Update handleFileChange to only handle single file uploads or fallback
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1523,8 +905,7 @@ function App() {
     </div>
   );
 
-  // Bulk upload folder selection state
-  const [bulkFolderDropdownOpen, setBulkFolderDropdownOpen] = useState(false);
+  // Bulk upload folder selection options
   const [bulkFolderOptions] = useState([
     '+ New folder',
     '2024 NDAs',
@@ -1537,6 +918,14 @@ function App() {
   const [bulkNewFolderInput, setBulkNewFolderInput] = useState('');
   const [bulkShowSave, setBulkShowSave] = useState(false);
   const [bulkSaveSuccess, setBulkSaveSuccess] = useState(false);
+  const [bulkFolderDropdownOpen, setBulkFolderDropdownOpen] = useState(false);
+
+  // Add state for document title editing in chat
+  const [documentTitle, setDocumentTitle] = useState('');
+  const [documentSaveType, setDocumentSaveType] = useState<'live' | 'word'>('live');
+  
+  // Add state for document panel visibility
+  const [isDocumentPanelVisible, setIsDocumentPanelVisible] = useState(true);
 
   // Helper to count real documents and folders from the ZIP tree
   function countDocsAndFolders(tree: DataNode[]): { docCount: number; folderCount: number } {
@@ -1581,11 +970,11 @@ function App() {
   // Add function to handle stage changes
   const handleStageChange = (newStage: string) => {
     setStage(newStage);
-    // Add system message for stage change
-    setChatMessages(prev => [...prev, {
-      role: 'system-progress',
-      content: `Document status changed to: ${newStage.charAt(0).toUpperCase() + newStage.slice(1)}`
-    }]);
+    // If stage is signed, automatically set document type to word
+    if (newStage === 'signed') {
+      setDocumentSaveType('word');
+    }
+    // Removed system message for stage change to keep chat clean
   };
 
   return (
@@ -1687,26 +1076,6 @@ function App() {
                         </Button>
                       </div>
                       <div className="flex items-center gap-2">
-                        {chatMode === 'Create' && (
-                          <Select
-                            showSearch
-                            placeholder="Select template"
-                            style={{ borderRadius: 16, minWidth: 150 }}
-                            options={[
-                              { label: 'NDA Template', value: 'nda' },
-                              { label: 'Employment Contract', value: 'employment' },
-                              { label: 'Consulting Agreement', value: 'consulting' },
-                              { label: 'Sales Agreement', value: 'sales' },
-                              { label: 'Partnership Agreement', value: 'partnership' },
-                              { label: 'Lease Agreement', value: 'lease' },
-                              { label: 'Service Agreement', value: 'service' },
-                              { label: 'Supplier Contract', value: 'supplier' },
-                              { label: 'IP Assignment', value: 'ip' },
-                              { label: 'Loan Agreement', value: 'loan' },
-                            ]}
-                            allowClear
-                          />
-                        )}
                         {(chatMode === 'Ask' || chatMode === 'Create') && (
                           <Dropdown
                             menu={{ items: attachmentMenuItems, onClick: handleAttachmentMenuClick }}
@@ -1770,7 +1139,7 @@ function App() {
             ) : selectedPage === 'chat' ? (
               <div className="flex h-full min-h-0 rounded-xl shadow-md overflow-hidden" style={{ height: '100%' }}>
                 {/* Chat panel */}
-                <div className="w-2/5 border-r border-gray-200 dark:border-gray-800 flex flex-col relative h-full min-h-0">
+                <div className={`${isDocumentPanelVisible ? 'w-2/5 border-r border-gray-200 dark:border-gray-800' : 'w-full max-w-4xl mx-auto'} flex flex-col relative h-full min-h-0`}>
                   <div className="flex-1 overflow-y-auto px-4 py-6" style={{ minHeight: 0 }}>
                     {/* Chat messages go here */}
                     {chatMessages.length === 0 ? (
@@ -1887,140 +1256,243 @@ function App() {
                                 <div className="flex justify-start w-full mt-2"><Spinner /></div>
                               ) : stagedStep > 0 ? (
                                 <div className="flex justify-start w-full mt-2">
-                                  <div className="flex items-center gap-3">
-                                    <Card size="small" style={{ background: darkMode ? '#232326' : '#f5f5f7', color: darkMode ? '#fff' : '#222', borderRadius: 12, minWidth: 220 }}>
-                                      <div className="flex items-center gap-2 text-xs break-all">
-                                        <FileTextOutlined className="text-base" />
-                                        {uploadedFiles[0]?.name || 'scorp-nda-2025.txt'}
-                                      </div>
-                                    </Card>
-                                    <Select
-                                      value={stage}
-                                      onChange={handleStageChange}
-                                      style={{ 
-                                        minWidth: 120,
-                                        background: darkMode ? 'rgba(255,255,255,0.08)' : '#f3f3f3',
-                                        borderRadius: 8
-                                      }}
-                                      options={[
-                                        { label: 'Template', value: 'template' },
-                                        { label: 'Signing', value: 'signing' },
-                                        { label: 'Signed', value: 'signed' },
-                                        { label: 'Draft', value: 'draft' },
-                                      ]}
-                                    />
-                                  </div>
-                                </div>
-                              ) : null
-                            )}
-                            {/* Staged summary system message */}
-                            {idx === 0 && msg.role === 'assistant' && msg.content.startsWith('We detected that') && (
-                              stagedStep === 1 ? (
-                                <div className="flex justify-start w-full mt-4"><Spinner /></div>
-                              ) : stagedStep > 1 ? (
-                                <div className="flex justify-start w-full mt-4">
-                                  <div
-                                    className="px-4 py-3 rounded-2xl shadow-sm rounded-bl-md"
-                                    style={{
-                                      background: 'transparent',
-                                      color: '#FFF',
-                                      wordBreak: 'break-word',
-                                      display: 'inline-block',
-                                      maxWidth: '80%',
-                                      minWidth: 48
-                                    }}
-                                  >
-                                    We extracted some meta-data and custom properties from this document.
-                                  </div>
-                                </div>
-                              ) : null
-                            )}
-                            {/* Staged summary card */}
-                            {idx === 0 && msg.role === 'assistant' && msg.content.startsWith('We detected that') && (
-                              stagedStep === 2 ? (
-                                <div className="flex justify-start w-full mt-2"><Spinner /></div>
-                              ) : stagedStep > 2 ? (
-                                <div className="space-y-4">
-                                  <div className="flex justify-start w-full mt-2">
-                                    <Card 
-                                      size="small" 
-                                      title={<span className="font-semibold text-sm flex items-center justify-between w-full">Summary and meta-data <ArrowRightOutlined /></span>} 
-                                      style={{ 
-                                        background: darkMode ? '#232326' : '#f5f5f7', 
-                                        color: darkMode ? '#fff' : '#222', 
-                                        borderRadius: 12, 
-                                        width: '100%', 
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s ease',
-                                        border: showSummaryView ? '2px solid #FF5669' : (darkMode ? '1px solid transparent' : '1px solid transparent'),
-                                        boxShadow: showSummaryView ? '0 0 0 2px #FF566955, 0 2px 8px 0 rgba(0,0,0,0.05)' : undefined
-                                      }}
-                                      className={
-                                        `hover:shadow-md active:shadow-sm active:translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-[#FF5669] active:ring-2 active:ring-[#FF5669]` +
-                                        (showSummaryView ? ' ring-2 ring-[#FF5669] shadow-md' : '')
+                                  <div className="flex flex-col gap-3 w-full">
+                                    {/* Editable settings card */}
+                                    <Card
+                                      size="small"
+                                      title={
+                                        <div className="flex items-center gap-2 text-sm">
+                                          <EditOutlined className="text-[#FF5669]" />
+                                          <span>Document Settings</span>
+                                          <span className="text-xs text-gray-400 font-normal ml-2">(You can modify these)</span>
+                                        </div>
                                       }
-                                      onClick={handleSummaryCardClick}
-                                      hoverable
+                                      style={{
+                                        background: darkMode ? 'rgba(255, 86, 105, 0.05)' : 'rgba(255, 86, 105, 0.02)',
+                                        borderColor: darkMode ? 'rgba(255, 86, 105, 0.2)' : 'rgba(255, 86, 105, 0.15)',
+                                        borderRadius: 12,
+                                      }}
+                                      className="w-full"
                                     >
                                       <div className="space-y-3">
-                                        {editableSummary.created && editableSummary.lastModified && (
-                                          <div className="flex items-center gap-2 text-xs">
-                                            <CalendarOutlined className="text-base" />
-                                            <span>
-                                              {dayjs(editableSummary.created, ['MMMM D, YYYY', 'MMM D, YYYY']).format('MMM D, YYYY')} - {dayjs(editableSummary.lastModified, ['MMMM D, YYYY', 'MMM D, YYYY']).format('MMM D, YYYY')}
-                                            </span>
+                                        {/* Title field */}
+                                        <div>
+                                          <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Title</label>
+                                          <Input
+                                            value={documentTitle}
+                                            onChange={(e) => setDocumentTitle(e.target.value)}
+                                            placeholder="Enter document title"
+                                            prefix={<EditOutlined className="text-gray-400" />}
+                                            style={{
+                                              background: darkMode ? 'rgba(255,255,255,0.08)' : '#fff',
+                                              borderRadius: 8,
+                                              border: darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb'
+                                            }}
+                                            size="middle"
+                                          />
+                                        </div>
+
+                                        {/* Stage and Type row */}
+                                        <div className="grid grid-cols-2 gap-3">
+                                          <div>
+                                            <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Stage</label>
+                                            <Select
+                                              value={stage}
+                                              onChange={handleStageChange}
+                                              style={{ 
+                                                width: '100%',
+                                                borderRadius: 8
+                                              }}
+                                              options={[
+                                                { label: 'Template', value: 'template' },
+                                                { label: 'Signed', value: 'signed' },
+                                                { label: 'Draft', value: 'draft' },
+                                              ]}
+                                            />
                                           </div>
-                                        )}
-                                        {editableSummary.tags.length > 0 && (
-                                          <div className="flex items-center gap-2 text-xs">
-                                            <TagsOutlined className="text-base" />
-                                            <span>{editableSummary.tags.length} Tags</span>
+                                          <div>
+                                            <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Document Type</label>
+                                            <Select
+                                              value={documentSaveType}
+                                              onChange={setDocumentSaveType}
+                                              disabled={stage === 'signed'}
+                                              style={{ 
+                                                width: '100%',
+                                                borderRadius: 8
+                                              }}
+                                              options={[
+                                                { label: '📄 Live document', value: 'live' },
+                                                { label: '📝 Word document', value: 'word' },
+                                              ]}
+                                            />
+                                            {stage === 'signed' && (
+                                              <div className="text-xs text-gray-400 mt-1">
+                                                Signed documents can only be saved as Word documents
+                                              </div>
+                                            )}
                                           </div>
-                                        )}
-                                        {editableSummary.clauses.length > 0 && (
-                                          <div className="flex items-center gap-2 text-xs">
-                                            <FileTextOutlined className="text-base" />
-                                            <span>{editableSummary.clauses.length} Clauses</span>
+                                        </div>
+
+                                        {/* Folder selection */}
+                                        <div>
+                                          <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Destination Folder</label>
+                                          <div className="flex items-center gap-2">
+                                            <Button 
+                                              icon={<FolderOutlined />}
+                                              onClick={() => setSaveModalOpen(true)}
+                                              style={{
+                                                borderRadius: 8,
+                                                flex: 1,
+                                                textAlign: 'left',
+                                                justifyContent: 'flex-start'
+                                              }}
+                                            >
+                                              {selectedFolder || 'Select folder'}
+                                            </Button>
+                                            {selectedFolder && (
+                                              <Button
+                                                type="text"
+                                                icon={<CloseOutlined />}
+                                                onClick={() => setSelectedFolder(null)}
+                                                size="small"
+                                              />
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        {/* Save in Concord button - only show when folder is selected */}
+                                        {selectedFolder && (
+                                          <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                                            <Button
+                                              type="primary"
+                                              size="large"
+                                              block
+                                              style={{ 
+                                                background: '#FF5669', 
+                                                border: 'none',
+                                                borderRadius: 8,
+                                                height: 40,
+                                                fontWeight: 500
+                                              }}
+                                              onClick={() => {
+                                                // Save directly with selected options
+                                                setSelectedConcordType(documentSaveType);
+                                                message.success(`Document saved to ${selectedFolder} as ${documentSaveType === 'live' ? 'Live document' : 'Word document'}`);
+                                                setTimeout(() => setSelectedPage('dashboard'), 1000);
+                                              }}
+                                            >
+                                              Save in Concord
+                                            </Button>
                                           </div>
                                         )}
                                       </div>
                                     </Card>
-                                  </div>
-                                  {/* Add system message about saving */}
-                                  <div className="flex justify-start w-full">
-                                    <div className="flex flex-col gap-3">
-                                      <div
-                                        className="px-4 py-3 rounded-2xl shadow-sm rounded-bl-md"
-                                        style={{
-                                          background: 'transparent',
-                                          color: '#FFF',
-                                          wordBreak: 'break-word',
-                                          display: 'inline-block',
-                                          maxWidth: '80%',
-                                          minWidth: 48
+
+                                    {/* Two read-only cards side by side */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                      {/* Contract card */}
+                                      <Card 
+                                        size="small" 
+                                        title={
+                                          <span className="font-semibold text-sm flex items-center justify-between w-full">
+                                            <div className="flex items-center gap-2">
+                                              <FileTextOutlined className="text-gray-400" />
+                                              <span>Agreement</span>
+                                              <span className="text-xs text-gray-400 font-normal">(Read-only)</span>
+                                            </div>
+                                          </span>
+                                        }
+                                        style={{ 
+                                          background: darkMode ? '#232326' : '#f5f5f7', 
+                                          color: darkMode ? '#fff' : '#222', 
+                                          borderRadius: 12, 
+                                          cursor: 'pointer',
+                                          transition: 'all 0.2s ease',
+                                          border: showDocumentView && !showSummaryView ? '2px solid #FF5669' : (darkMode ? '1px solid transparent' : '1px solid transparent'),
+                                          boxShadow: showDocumentView && !showSummaryView ? '0 0 0 2px #FF566955, 0 2px 8px 0 rgba(0,0,0,0.05)' : undefined,
+                                          height: '100%'
                                         }}
+                                        className={
+                                          `hover:shadow-md active:shadow-sm active:translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-[#FF5669] active:ring-2 active:ring-[#FF5669]` +
+                                          (showDocumentView && !showSummaryView ? ' ring-2 ring-[#FF5669] shadow-md' : '')
+                                        }
+                                        onClick={handleDocumentCardClick}
+                                        hoverable
                                       >
-                                        Where do you want to save this document?
-                                      </div>
-                                      <div className="pl-4 flex flex-col gap-2">
-                                        {selectedFolder && (
-                                          <div className="text-sm text-gray-400">
-                                            Selected: {selectedFolder}
+                                        <div className="space-y-3">
+                                          <div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Title</div>
+                                            <div className="text-sm font-medium">
+                                              {documentTitle || editableSummary.title || 'S-Corp Non-Disclosure Agreement 2025'}
+                                            </div>
                                           </div>
-                                        )}
-                                        <Button 
-                                          type="default"
-                                          size="middle"
-                                          onClick={() => setSaveModalOpen(true)}
-                                        >
-                                          Select folder
-                                        </Button>
-                                      </div>
+                                          <div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Third Party</div>
+                                            <div className="text-sm">
+                                              {editableSummary.thirdParties?.length > 0 ? editableSummary.thirdParties.join(', ') : 'No third parties'}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </Card>
+
+                                      {/* Metadata card */}
+                                      <Card 
+                                        size="small" 
+                                        title={
+                                          <span className="font-semibold text-sm flex items-center justify-between w-full">
+                                            <div className="flex items-center gap-2">
+                                              <InfoCircleOutlined className="text-gray-400" />
+                                              <span>Metadata</span>
+                                              <span className="text-xs text-gray-400 font-normal">(Read-only)</span>
+                                            </div>
+                                          </span>
+                                        } 
+                                        style={{ 
+                                          background: darkMode ? '#232326' : '#f5f5f7', 
+                                          color: darkMode ? '#fff' : '#222', 
+                                          borderRadius: 12, 
+                                          cursor: 'pointer',
+                                          transition: 'all 0.2s ease',
+                                          border: showSummaryView ? '2px solid #FF5669' : (darkMode ? '1px solid transparent' : '1px solid transparent'),
+                                          boxShadow: showSummaryView ? '0 0 0 2px #FF566955, 0 2px 8px 0 rgba(0,0,0,0.05)' : undefined,
+                                          height: '100%'
+                                        }}
+                                        className={
+                                          `hover:shadow-md active:shadow-sm active:translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-[#FF5669] active:ring-2 active:ring-[#FF5669]` +
+                                          (showSummaryView ? ' ring-2 ring-[#FF5669] shadow-md' : '')
+                                        }
+                                        onClick={handleSummaryCardClick}
+                                        hoverable
+                                      >
+                                        <div className="space-y-2">
+                                          {editableSummary.created && editableSummary.lastModified && (
+                                            <div className="flex items-center gap-2 text-xs">
+                                              <CalendarOutlined className="text-base" />
+                                              <span>
+                                                {dayjs(editableSummary.created, ['MMMM D, YYYY', 'MMM D, YYYY']).format('MMM D, YYYY')} - {dayjs(editableSummary.lastModified, ['MMMM D, YYYY', 'MMM D, YYYY']).format('MMM D, YYYY')}
+                                              </span>
+                                            </div>
+                                          )}
+                                          {editableSummary.tags.length > 0 && (
+                                            <div className="flex items-center gap-2 text-xs">
+                                              <TagsOutlined className="text-base" />
+                                              <span>{editableSummary.tags.length} Tags</span>
+                                            </div>
+                                          )}
+                                          {editableSummary.clauses.length > 0 && (
+                                            <div className="flex items-center gap-2 text-xs">
+                                              <FileTextOutlined className="text-base" />
+                                              <span>{editableSummary.clauses.length} Clauses</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </Card>
                                     </div>
                                   </div>
                                 </div>
                               ) : null
                             )}
+
                           </React.Fragment>
                         ))}
                         {awaitingSignatories && (
@@ -2064,7 +1536,27 @@ function App() {
                   </div>
                 </div>
                 {/* Document panel */}
-                <div className="w-3/5 flex flex-col h-full min-h-0">
+                {isDocumentPanelVisible && (
+                <div className="w-3/5 flex flex-col h-full min-h-0 relative">
+                  {/* Close button */}
+                  <Button
+                    type="text"
+                    icon={<CloseOutlined />}
+                    onClick={() => setIsDocumentPanelVisible(false)}
+                    style={{
+                      position: 'absolute',
+                      top: 16,
+                      right: 16,
+                      zIndex: 10,
+                      background: darkMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.9)',
+                      borderRadius: '50%',
+                      width: 32,
+                      height: 32,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  />
                   {/* Bulk upload ZIP experience */}
                   {selectedZipFile ? (
                     <div className="flex-1 flex flex-col p-6 overflow-y-auto min-h-0">
@@ -2111,139 +1603,131 @@ function App() {
                           <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-3">
                               <div className="font-bold text-lg dark:text-white">
-                                {documentType === 'Draft'
+                                {documentTitle || (documentType === 'Draft'
                                   ? 'SALES AGREEMENT - DRAFT VERSION 3.2'
                                   : uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt'
                                     ? 'Le Taco Truc - MSA 2025'
-                                    : 'S-Corp Non-Disclosure Agreement 2025'}
+                                    : 'S-Corp Non-Disclosure Agreement 2025')}
                               </div>
-                          </div>
-                            <div className="flex gap-2">
-                              {uploadedFiles[0]?.name === 'scorp_letacotruck_msa (1).txt' ? (
-                          <Button
-                                  type="primary"
-                            size="middle"
-                                  style={{ background: '#FF5669', border: 'none' }}
-                                  onClick={() => {
-                                    setSelectedPage('dashboard');
-                                  }}
-                                  disabled={showSummaryView}
-                          >
-                                  Save in Concord
-                          </Button>
-                              ) : (
-                                <Button
-                                  type="primary"
-                                  size="middle"
-                                  style={{ background: '#FF5669', border: 'none' }}
-                                  onClick={() => {
-                                    setSelectedPage('dashboard');
-                                  }}
-                                  disabled={showSummaryView}
-                                >
-                                  Save in Concord
-                                </Button>
-                            )}
                           </div>
                         </div>
                       </div>
                       )}
                       {showSummaryView ? (
-                        <div className="flex-1 p-6 overflow-y-auto">
-                          <div className="flex items-center justify-between mb-6">
+                        <div className="flex flex-col h-full">
+                          <div className="flex items-center justify-between px-6 pt-4">
                             <h2 className="text-xl font-semibold dark:text-white">Document Summary</h2>
-                            <div className="flex items-center gap-2">
-                              <Button 
-                                type="text" 
-                                icon={<CloseOutlined />} 
-                                onClick={() => setShowSummaryView(false)}
-                              />
-                            </div>
+                            <Button
+                              type="text"
+                              icon={<CloseOutlined />}
+                              onClick={() => {
+                                setShowSummaryView(false);
+                                setShowDocumentView(true);
+                              }}
+                            />
                           </div>
-                          <div className="space-y-6">
-                            <Card title="Description" size="small" bordered={false}>
-                              <div className="text-sm">
-                                {editableSummary.brief}
-                              </div>
-                            </Card>
-
-                            <Card title="Lifecycle" size="small" bordered={false}>
-                              <div className="space-y-2">
-                                <div className="flex justify-between items-center gap-2">
-                                  <span>Created:</span>
-                                  <span className="text-sm">
-                                    {dayjs(editableSummary.created, ['MMMM D, YYYY', 'MMM D, YYYY']).format('MMM D, YYYY')}
-                                  </span>
+                          <div className="flex-1 p-6 overflow-y-auto">
+                            <div className="space-y-6">
+                              <Card title="Title" size="small" bordered={false}>
+                                <div className="text-sm font-semibold">
+                                  {documentTitle || editableSummary.title}
                                 </div>
-                                <div className="flex justify-between items-center gap-2">
-                                  <span>Last Modified:</span>
-                                  <span className="text-sm">
-                                    {dayjs(editableSummary.lastModified, ['MMMM D, YYYY', 'MMM D, YYYY']).format('MMM D, YYYY')}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between items-center gap-2">
-                                  <span>Effective Date:</span>
-                                  <span className="text-sm">
-                                    {dayjs(editableSummary.effectiveDate || editableSummary.created, ['MMMM D, YYYY', 'MMM D, YYYY']).format('MMM D, YYYY')}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between items-center gap-2">
-                                  <span>Renewal Date:</span>
-                                  <span className="text-sm">
-                                    {dayjs(editableSummary.renewalDate || editableSummary.created, ['MMMM D, YYYY', 'MMM D, YYYY']).add(1, 'year').format('MMM D, YYYY')}
-                                  </span>
-                                </div>
-                              </div>
-                            </Card>
-
-                            <Card title="Third Parties" size="small" bordered={false}>
-                              <div className="space-y-2">
-                                {editableSummary.thirdParties?.map((party, idx) => (
-                                  <div key={idx} className="flex items-center gap-2">
-                                    <Avatar size="small" style={{ backgroundColor: '#FF5669' }}>
-                                      {party.charAt(0).toUpperCase()}
-                                    </Avatar>
-                                    <span className="text-sm">{party}</span>
-                                  </div>
-                                )) || (
-                                  <div className="text-sm text-gray-400">No third parties identified</div>
-                                )}
-                              </div>
-                            </Card>
-
-                            <Card title="Signers" size="small" bordered={false}>
-                              <div className="space-y-2">
-                                {editableSummary.signers.map((signer, idx) => (
-                                  <div key={idx} className="flex items-center gap-2">
-                                    <Avatar size="small" style={{ backgroundColor: '#FF5669' }}>
-                                      {signer.charAt(0).toUpperCase()}
-                                    </Avatar>
-                                    <span className="text-sm">{signer}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </Card>
-
-                            {editableSummary.clauses.length > 0 && (
-                              <Card title="Clauses" size="small" bordered={false}>
-                                <Collapse ghost className="bg-transparent">
-                                  {editableSummary.clauses.map((clause, idx) => (
-                                    <Collapse.Panel 
-                                      key={idx} 
-                                      header={
-                                        <span className="font-semibold">
-                                          {clause.heading}
-                                        </span>
-                                      }
-                                    >
-                                      <div className="text-sm whitespace-pre-wrap">
-                                        {clause.text}
-                                      </div>
-                                    </Collapse.Panel>
-                                  ))}
-                                </Collapse>
                               </Card>
-                            )}
+
+                              <Card title="Description" size="small" bordered={false}>
+                                <div className="text-sm">
+                                  {editableSummary.brief}
+                                </div>
+                              </Card>
+
+                              <Card title="Lifecycle" size="small" bordered={false}>
+                                <div className="space-y-2">
+                                  <div className="flex justify-between items-center gap-2">
+                                    <span>Created:</span>
+                                    <span className="text-sm">
+                                      {dayjs(editableSummary.created, ['MMMM D, YYYY', 'MMM D, YYYY']).format('MMM D, YYYY')}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between items-center gap-2">
+                                    <span>Last Modified:</span>
+                                    <span className="text-sm">
+                                      {dayjs(editableSummary.lastModified, ['MMMM D, YYYY', 'MMM D, YYYY']).format('MMM D, YYYY')}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between items-center gap-2">
+                                    <span>Effective Date:</span>
+                                    <span className="text-sm">
+                                      {dayjs(editableSummary.effectiveDate || editableSummary.created, ['MMMM D, YYYY', 'MMM D, YYYY']).format('MMM D, YYYY')}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between items-center gap-2">
+                                    <span>Renewal Date:</span>
+                                    <span className="text-sm">
+                                      {dayjs(editableSummary.renewalDate || editableSummary.created, ['MMMM D, YYYY', 'MMM D, YYYY']).add(1, 'year').format('MMM D, YYYY')}
+                                    </span>
+                                  </div>
+                                </div>
+                              </Card>
+
+                              <Card title="Agreement Category" size="small" bordered={false}>
+                                <div className="text-sm">
+                                  {editableSummary.agreementCategory}
+                                </div>
+                              </Card>
+
+                              <Card title="Document Type" size="small" bordered={false}>
+                                <div className="text-sm">
+                                  {editableSummary.documentType}
+                                </div>
+                              </Card>
+
+                              <Card title="Total Agreement Value" size="small" bordered={false}>
+                                <div className="space-y-2">
+                                  <div className="text-lg font-semibold">
+                                    {editableSummary.totalAgreementValue}
+                                  </div>
+                                  <div className="text-sm text-gray-500">
+                                    {editableSummary.totalAgreementDescription}
+                                  </div>
+                                </div>
+                              </Card>
+
+                              <Card title="Third Parties" size="small" bordered={false}>
+                                <div className="space-y-2">
+                                  {editableSummary.thirdParties?.map((party, idx) => (
+                                    <div key={idx} className="flex items-center gap-2">
+                                      <Avatar size="small" style={{ backgroundColor: '#FF5669' }}>
+                                        {party.charAt(0).toUpperCase()}
+                                      </Avatar>
+                                      <span className="text-sm">{party}</span>
+                                    </div>
+                                  )) || (
+                                    <div className="text-sm text-gray-400">No third parties identified</div>
+                                  )}
+                                </div>
+                              </Card>
+
+                              {editableSummary.clauses.length > 0 && (
+                                <Card title="Clauses" size="small" bordered={false}>
+                                  <Collapse ghost className="bg-transparent">
+                                    {editableSummary.clauses.map((clause, idx) => (
+                                      <Collapse.Panel 
+                                        key={idx} 
+                                        header={
+                                          <span className="font-semibold">
+                                            {clause.heading}
+                                          </span>
+                                        }
+                                      >
+                                        <div className="text-sm whitespace-pre-wrap">
+                                          {clause.text}
+                                        </div>
+                                      </Collapse.Panel>
+                                    ))}
+                                  </Collapse>
+                                </Card>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ) : (
@@ -2274,6 +1758,7 @@ function App() {
                     </>
                   )}
                 </div>
+                )}
               </div>
             ) : null}
             {/* Always render file input and upload modal so upload works everywhere */}
@@ -2290,20 +1775,6 @@ function App() {
               ref={singleFileInputRef}
               style={{ display: 'none' }}
               onChange={handleSingleFileChange}
-              accept=".txt,.md,.csv,.json,.log,.rtf,.html,.xml"
-            />
-            <input
-              type="file"
-              ref={signedTestFileInputRef}
-              style={{ display: 'none' }}
-              onChange={handleSignedTestFileChange}
-              accept=".txt,.md,.csv,.json,.log,.rtf,.html,.xml"
-            />
-            <input
-              type="file"
-              ref={draftTestFileInputRef}
-              style={{ display: 'none' }}
-              onChange={handleDraftTestFileChange}
               accept=".txt,.md,.csv,.json,.log,.rtf,.html,.xml"
             />
             <input
@@ -2449,6 +1920,90 @@ function App() {
                   <div className="font-semibold text-base mb-2">Word document</div>
                   <div className="text-xs text-gray-500 mb-2">Conserve Word formatting and comments, but uneditable in Concord</div>
                   <div className="text-xs text-gray-400">Best for legal review and external sharing</div>
+                </Card>
+              </div>
+            </Modal>
+            {/* Save in Concord Modal */}
+            <Modal
+              title="How would you like to open the document in Concord?"
+              open={saveConcordModalOpen}
+              onCancel={() => setSaveConcordModalOpen(false)}
+              footer={null}
+              centered
+              width={600}
+            >
+              <div className="flex gap-4 justify-center">
+                <Card
+                  hoverable
+                  className={selectedConcordType === 'live' ? 'ring-2 ring-[#FF5669]' : ''}
+                  style={{ 
+                    width: 260, 
+                    cursor: 'pointer', 
+                    borderRadius: 12,
+                    padding: '24px'
+                  }}
+                  onClick={() => {
+                    setSelectedConcordType('live');
+                    setSaveConcordModalOpen(false);
+                    setTimeout(() => setSelectedPage('dashboard'), 200);
+                  }}
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-[#5865F2]/10 rounded-lg">
+                      <FileTextOutlined style={{ fontSize: 20, color: '#5865F2' }} />
+                    </div>
+                    <div className="font-semibold text-lg">Live document</div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2">
+                      <CheckOutlined className="text-[#5865F2] mt-0.5" style={{ fontSize: 12 }} />
+                      <span className="text-sm text-gray-600 dark:text-gray-300">Edit live in Concord</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckOutlined className="text-[#5865F2] mt-0.5" style={{ fontSize: 12 }} />
+                      <span className="text-sm text-gray-600 dark:text-gray-300">Conditional approvals</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckOutlined className="text-[#5865F2] mt-0.5" style={{ fontSize: 12 }} />
+                      <span className="text-sm text-gray-600 dark:text-gray-300">Smart fields & clause library</span>
+                    </div>
+                  </div>
+                </Card>
+                <Card
+                  hoverable
+                  className={selectedConcordType === 'word' ? 'ring-2 ring-[#FF5669]' : ''}
+                  style={{ 
+                    width: 260, 
+                    cursor: 'pointer', 
+                    borderRadius: 12,
+                    padding: '24px'
+                  }}
+                  onClick={() => {
+                    setSelectedConcordType('word');
+                    setSaveConcordModalOpen(false);
+                    setTimeout(() => setSelectedPage('dashboard'), 200);
+                  }}
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                      <span className="font-bold text-lg" style={{ color: '#0F6CBD' }}>W</span>
+                    </div>
+                    <div className="font-semibold text-lg">Word</div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2">
+                      <CheckOutlined className="text-gray-400" style={{ fontSize: 12 }} />
+                      <span className="text-sm text-gray-600 dark:text-gray-300">Edit offline in Word</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckOutlined className="text-gray-400" style={{ fontSize: 12 }} />
+                      <span className="text-sm text-gray-600 dark:text-gray-300">Simple approvals</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckOutlined className="text-gray-400" style={{ fontSize: 12 }} />
+                      <span className="text-sm text-gray-600 dark:text-gray-300">Maintain original format</span>
+                    </div>
+                  </div>
                 </Card>
               </div>
             </Modal>
