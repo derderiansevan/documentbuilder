@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Input, Table, Tag, Avatar, Dropdown, Space, ConfigProvider, theme as antdTheme, Segmented, Select, Modal, Upload, message, Card, Collapse, Tree, Skeleton, DatePicker, Tabs } from 'antd';
-import { PlusOutlined, UserOutlined, BellOutlined, FileTextOutlined, SettingOutlined, LogoutOutlined, BulbOutlined, BulbFilled, ArrowUpOutlined, PaperClipOutlined, CloseOutlined, MessageOutlined, ArrowRightOutlined, FolderOutlined, DownOutlined, RightOutlined, CalendarOutlined, TagsOutlined, FileZipOutlined, FolderOpenOutlined, CheckOutlined, EditOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Layout, Menu, Button, Input, Table, Tag, Avatar, Dropdown, Space, ConfigProvider, theme as antdTheme, Segmented, Select, Modal, Upload, message, Card, Collapse, Tree, Skeleton, DatePicker, Tabs, Alert, Checkbox } from 'antd';
+import { PlusOutlined, UserOutlined, BellOutlined, FileTextOutlined, SettingOutlined, LogoutOutlined, BulbOutlined, BulbFilled, ArrowUpOutlined, PaperClipOutlined, CloseOutlined, MessageOutlined, ArrowRightOutlined, FolderOutlined, DownOutlined, RightOutlined, CalendarOutlined, TagsOutlined, FileZipOutlined, FolderOpenOutlined, CheckOutlined, EditOutlined, InfoCircleOutlined, ExportOutlined } from '@ant-design/icons';
 import type { MenuInfo } from 'rc-menu/lib/interface';
 import dayjs from 'dayjs';
 import JSZip from 'jszip';
@@ -72,7 +72,19 @@ const userMenuItems = [
 
 const attachmentMenuItems = [
   { key: 'single', label: 'Single upload' },
-  { key: 'bulk-zip', label: (<span><FileZipOutlined style={{ marginRight: 6 }} />Bulk upload</span>) },
+  { 
+    key: 'bulk-zip', 
+    label: (
+      <div>
+        <div className="flex items-center">
+          <FileZipOutlined style={{ marginRight: 6 }} />
+          <span>Bulk upload</span>
+          <Tag color="green" style={{ marginLeft: 8, fontSize: 10 }}>AI Enhanced</Tag>
+        </div>
+        <div className="text-xs text-gray-500 mt-1">Auto-extract & organize documents</div>
+      </div>
+    ) 
+  },
   { key: 'docusign', label: 'Import from Docusign', disabled: true }
 ];
 
@@ -759,6 +771,32 @@ function App() {
   // Mock file/folder tree data for ZIP contents
   const [bulkUploadTreeData, setBulkUploadTreeData] = useState<DataNode[]>([]);
 
+  // Add states for enhanced bulk upload with auto-extraction
+  const [bulkAnalysisProgress, setBulkAnalysisProgress] = useState(0);
+  const [bulkAnalysisActive, setBulkAnalysisActive] = useState(false);
+  const [bulkExtractedData, setBulkExtractedData] = useState<{
+    [key: string]: {
+      docType: string;
+      parties: string[];
+      dates: { effective?: string; renewal?: string; expiry?: string; signed?: string };
+      confidence: number;
+      suggestedFolder: string;
+      status: 'pending' | 'template' | 'signed' | 'draft';
+      extractedClauses: number;
+      keyTerms: string[];
+      agreementCategory: string;
+      totalAgreementValue: string;
+      totalAgreementDescription: string;
+      signers: string[];
+      originalPath: string;
+    }
+  }>({});
+  const [showBulkReview, setShowBulkReview] = useState(false);
+  const [bulkReviewTab, setBulkReviewTab] = useState<'table' | 'folders'>('table');
+  const [bulkImportCompleted, setBulkImportCompleted] = useState(false);
+  const [currentFolderPath, setCurrentFolderPath] = useState<string[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+
   // Simulate ZIP processing and upload when selectedZipFile is set
   useEffect(() => {
     if (
@@ -773,7 +811,7 @@ function App() {
       setBulkUploadAnimating(true);
       setChatMessages(prev => [
         ...prev,
-        { role: 'assistant', content: `Bulk upload started for ${bulkUploadDocCount} documents in ${bulkUploadFolderCount} folders.` },
+        { role: 'assistant', content: `Bulk upload started for ${bulkUploadDocCount} documents in ${bulkUploadFolderCount} folders. AI will automatically extract document information, classify documents, and suggest organization.` },
         { role: 'system-progress', content: 'Document upload in progress' }
       ]);
       let progress = 0;
@@ -810,6 +848,128 @@ function App() {
     }
     // eslint-disable-next-line
   }, [selectedZipFile, bulkUploadDocCount, bulkUploadTotal, bulkUploadFolderCount]);
+
+  // Add function to analyze documents after upload
+  const analyzeBulkDocuments = async () => {
+    setBulkAnalysisActive(true);
+    setBulkAnalysisProgress(0);
+    // Start with empty data - we'll build it progressively
+    setBulkExtractedData({});
+    
+    // Enhanced realistic document analysis
+    const companies = ['Acme Corp', 'Tech Solutions Inc', 'Global Services Ltd', 'Innovation Partners', 'Digital Ventures', 'Le Taco Truc', 'Stellar Systems', 'Prime Logistics'];
+    const employees = ['John Smith', 'Sarah Johnson', 'Michael Chen', 'Emma Davis', 'Robert Wilson'];
+    const categories = ['Service Agreement', 'Confidentiality', 'Employment', 'Sales', 'Partnership', 'Vendor Agreement'];
+    const docTypesByCategory: Record<string, string[]> = {
+      'Service Agreement': ['Master Service Agreement', 'Service Level Agreement', 'Consulting Agreement'],
+      'Confidentiality': ['Non-Disclosure Agreement', 'Mutual NDA', 'Employee NDA'],
+      'Employment': ['Employment Contract', 'Contractor Agreement', 'Offer Letter'],
+      'Sales': ['Sales Agreement', 'Purchase Order', 'Supply Agreement'],
+      'Partnership': ['Partnership Agreement', 'Joint Venture Agreement', 'Collaboration Agreement'],
+      'Vendor Agreement': ['Vendor Contract', 'Supplier Agreement', 'Procurement Agreement']
+    };
+    
+    // Generate folder structure based on actual files
+    const folderStructure: Record<string, any> = {
+      '2024 Contracts': [],
+      '2023 Contracts': [],
+      'Active Agreements': {
+        'Service Contracts': [],
+        'NDAs': [],
+        'Employment': [],
+        'Vendor Agreements': []
+      },
+      'Templates': [],
+      'Archived': []
+    };
+    
+    let analyzed = 0;
+    const analyzeNext = () => {
+      if (analyzed < bulkUploadTotal) {
+              setTimeout(() => {
+        analyzed++;
+        // Start showing the review tabs as soon as we have some data
+        if (analyzed === 1) {
+          setShowBulkReview(true);
+        }
+        const isTemplate = Math.random() > 0.8;
+          const isSigned = !isTemplate && Math.random() > 0.3;
+          const category = categories[Math.floor(Math.random() * categories.length)];
+          const docType = docTypesByCategory[category][Math.floor(Math.random() * docTypesByCategory[category].length)];
+          const company = companies[Math.floor(Math.random() * companies.length)];
+          const year = isSigned ? (Math.random() > 0.5 ? '2024' : '2023') : '2024';
+          
+          // Generate realistic file path
+          const fileName = isTemplate 
+            ? `${docType.replace(/ /g, '_')}_Template.pdf`
+            : `${company.replace(/ /g, '_')}_${docType.replace(/ /g, '_')}_${year}.pdf`;
+          
+          const originalPath = isTemplate
+            ? `Templates/${fileName}`
+            : `${year}/${category.replace(/ /g, '_')}/${fileName}`;
+          
+          // Determine suggested folder based on status and type
+          let suggestedFolder = '';
+          if (isTemplate) {
+            suggestedFolder = 'Templates';
+          } else if (isSigned) {
+            suggestedFolder = year === '2024' ? `Active Agreements/${category}` : 'Archived';
+          } else {
+            suggestedFolder = '2024 Contracts/Drafts';
+          }
+          
+          const newData = {
+            docType: docType,
+            parties: isSigned ? [company, 'S-Corp Inc.'] : ['[Party 1]', '[Party 2]'],
+            dates: {
+              effective: year + '-' + String(Math.floor(Math.random() * 12) + 1).padStart(2, '0') + '-' + String(Math.floor(Math.random() * 28) + 1).padStart(2, '0'),
+              renewal: (parseInt(year) + 1) + '-' + String(Math.floor(Math.random() * 12) + 1).padStart(2, '0') + '-' + String(Math.floor(Math.random() * 28) + 1).padStart(2, '0'),
+              expiry: (parseInt(year) + 2) + '-' + String(Math.floor(Math.random() * 12) + 1).padStart(2, '0') + '-' + String(Math.floor(Math.random() * 28) + 1).padStart(2, '0'),
+              signed: isSigned ? year + '-' + String(Math.floor(Math.random() * 12) + 1).padStart(2, '0') + '-' + String(Math.floor(Math.random() * 28) + 1).padStart(2, '0') : undefined
+            },
+            confidence: isTemplate ? 100 : (isSigned ? 85 + Math.floor(Math.random() * 15) : 70 + Math.floor(Math.random() * 20)),
+            suggestedFolder: suggestedFolder,
+            status: (isTemplate ? 'template' : (isSigned ? 'signed' : 'draft')) as 'pending' | 'template' | 'signed' | 'draft',
+            extractedClauses: Math.floor(Math.random() * 15) + 8,
+            keyTerms: ['confidentiality', 'liability', 'termination', 'payment terms', 'intellectual property'].slice(0, Math.floor(Math.random() * 3) + 2),
+            agreementCategory: category,
+            totalAgreementValue: isSigned ? 
+              (category === 'Sales' || category === 'Service Agreement' ? 
+                '$' + (Math.floor(Math.random() * 900) + 100) + ',000' : 
+                'N/A') : 'TBD',
+            totalAgreementDescription: isSigned ?
+              (category === 'Sales' ? 'Annual purchase commitment' :
+               category === 'Service Agreement' ? 'Monthly retainer + hourly rates' :
+               'Non-monetary agreement') : 'To be determined',
+            signers: isSigned ? 
+              [employees[Math.floor(Math.random() * employees.length)] + ' (S-Corp)', 
+               'Authorized Representative (' + company + ')'] : 
+              [],
+            originalPath: originalPath
+          };
+          // Update state progressively - add one document at a time
+          setBulkExtractedData(prev => ({
+            ...prev,
+            [fileName]: newData
+          }));
+          setBulkAnalysisProgress(analyzed);
+          analyzeNext();
+                  }, 150); // Slow down to show progressive building better
+      } else {
+        setBulkAnalysisActive(false);
+        console.log('Analysis complete');
+      }
+    };
+    analyzeNext();
+  };
+
+  // Start analysis immediately when upload starts
+  useEffect(() => {
+    if (bulkUploadActive && bulkUploadTotal > 0 && !bulkAnalysisActive && Object.keys(bulkExtractedData).length === 0) {
+      // Start analysis immediately, don't wait for upload to complete
+      analyzeBulkDocuments();
+    }
+  }, [bulkUploadActive, bulkUploadTotal, bulkAnalysisActive, bulkExtractedData]);
 
   // Helper to build AntD tree from JSZip files
   function buildTreeFromZip(zip: JSZip): DataNode[] {
@@ -854,13 +1014,21 @@ function App() {
         size="small"
         title={
           <span className="font-semibold text-sm flex items-center justify-between w-full">
-            {bulkUploadAnimating
-              ? `Document upload in progress`
+            {bulkUploadAnimating || bulkAnalysisActive
+              ? `Processing documents... (${bulkAnalysisProgress}/${bulkUploadTotal} analyzed)`
+              : showBulkReview
+              ? `Review and organize ${bulkUploadTotal} documents`
               : `${bulkUploadProgress} / ${bulkUploadTotal} documents uploaded successfully`}
             <ArrowRightOutlined
               className="ml-2 cursor-pointer"
-              rotate={showBulkTree ? 90 : 0}
-              onClick={() => setShowBulkTree(t => !t)}
+              rotate={showBulkTree || showBulkReview ? 90 : 0}
+              onClick={() => {
+                if (showBulkReview) {
+                  // Don't toggle tree view when in review mode
+                  return;
+                }
+                setShowBulkTree(t => !t);
+              }}
             />
           </span>
         }
@@ -871,14 +1039,17 @@ function App() {
           width: '100%',
           marginBottom: 24,
           cursor: 'pointer',
-          border: showBulkTree ? '2px solid #FF5669' : (darkMode ? '1px solid transparent' : '1px solid transparent'),
-          boxShadow: showBulkTree ? '0 0 0 2px #FF566955, 0 2px 8px 0 rgba(0,0,0,0.05)' : undefined
+          border: (showBulkTree || showBulkReview) ? '2px solid #FF5669' : (darkMode ? '1px solid transparent' : '1px solid transparent'),
+          boxShadow: (showBulkTree || showBulkReview) ? '0 0 0 2px #FF566955, 0 2px 8px 0 rgba(0,0,0,0.05)' : undefined
         }}
         className={
           `hover:shadow-md active:shadow-sm active:translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-[#FF5669] active:ring-2 active:ring-[#FF5669]` +
-          (showBulkTree ? ' ring-2 ring-[#FF5669] shadow-md' : '')
+          ((showBulkTree || showBulkReview) ? ' ring-2 ring-[#FF5669] shadow-md' : '')
         }
-        onClick={() => setShowBulkTree(t => !t)}
+        onClick={() => {
+          if (showBulkReview) return;
+          setShowBulkTree(t => !t);
+        }}
         hoverable
       >
         <div className="space-y-3">
@@ -894,31 +1065,53 @@ function App() {
             <FileTextOutlined className="text-base" />
             {bulkUploadDocCount} Documents
           </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mt-2">
-            <div
-              className="bg-[#FF5669] h-3 rounded-full transition-all duration-700"
-              style={{ width: `${bulkUploadTotal ? (bulkUploadProgress / bulkUploadTotal) * 100 : 0}%` }}
-            />
-          </div>
+          
+          {/* Combined Progress Bars */}
+          {(bulkUploadAnimating || bulkAnalysisActive || bulkUploadProgress < bulkUploadTotal) && (
+            <div className="space-y-2">
+              {/* Upload Progress */}
+              <div>
+                <div className="text-xs mb-1 flex items-center justify-between">
+                  <span>Uploading documents...</span>
+                  <span className="text-gray-500">{bulkUploadProgress}/{bulkUploadTotal}</span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div
+                    className="bg-[#FF5669] h-2 rounded-full transition-all duration-700"
+                    style={{ width: `${bulkUploadTotal ? (bulkUploadProgress / bulkUploadTotal) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+              
+              {/* Analysis Progress */}
+              <div>
+                <div className="text-xs mb-1 flex items-center justify-between">
+                  <span>AI analyzing content...</span>
+                  <span className="text-gray-500">{bulkAnalysisProgress}/{bulkUploadTotal}</span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div
+                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${bulkUploadTotal ? (bulkAnalysisProgress / bulkUploadTotal) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Review Ready Indicator */}
+          {showBulkReview && (
+            <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+              <CheckOutlined className="text-base" />
+              Analysis complete - Ready for review
+            </div>
+          )}
         </div>
       </Card>
     </div>
   );
 
-  // Bulk upload folder selection options
-  const [bulkFolderOptions] = useState([
-    '+ New folder',
-    '2024 NDAs',
-    'Client Contracts',
-    'HR Documents',
-    'Finance',
-    'Legal Archive',
-  ]);
-  const [bulkSelectedFolder, setBulkSelectedFolder] = useState<string | null>(null);
-  const [bulkNewFolderInput, setBulkNewFolderInput] = useState('');
-  const [bulkShowSave, setBulkShowSave] = useState(false);
-  const [bulkSaveSuccess, setBulkSaveSuccess] = useState(false);
-  const [bulkFolderDropdownOpen, setBulkFolderDropdownOpen] = useState(false);
+  // Removed bulk upload folder selection - now handled in the review interface
 
   // Add state for document title editing in chat
   const [documentTitle, setDocumentTitle] = useState('');
@@ -958,10 +1151,15 @@ function App() {
       setBulkUploadActive(false);
       setBulkUploadTreeData([]);
       setShowBulkTree(false);
-      setBulkSelectedFolder(null);
-      setBulkNewFolderInput('');
-      setBulkShowSave(false);
-      setBulkSaveSuccess(false);
+
+      setBulkAnalysisProgress(0);
+            setBulkAnalysisActive(false);
+      setBulkExtractedData({});
+      setShowBulkReview(false);
+      setBulkReviewTab('table');
+      setBulkImportCompleted(false);
+      setCurrentFolderPath([]);
+      setSelectedFiles(new Set());
     };
     window.addEventListener('load', clearBulkUpload);
     return () => window.removeEventListener('load', clearBulkUpload);
@@ -1165,91 +1363,8 @@ function App() {
                             </div>
                             {/* Bulk upload system progress card as second message */}
                             {selectedZipFile && msg.role === 'system-progress' && idx === 1 && renderBulkUploadSystemCard()}
-                            {/* Bulk upload folder selection system message (third message) */}
-                            {selectedZipFile && msg.role === 'system-progress' && idx === 1 && !bulkSaveSuccess && bulkUploadProgress === bulkUploadTotal && bulkUploadTotal > 0 && (
-                              <div className="flex justify-start w-full mt-2">
-                                <Card
-                                  size="small"
-                                  style={{ background: 'transparent', boxShadow: 'none', border: 'none', color: darkMode ? '#fff' : '#222', width: '100%' }}
-                                  bodyStyle={{ padding: 0 }}
-                                >
-                                  <div className="flex flex-col gap-2">
-                                    <div className="font-semibold text-sm mb-1">Select a folder for these documents</div>
-                                    <div className="text-xs text-gray-400 mb-2">Documents will maintain their current folder organisation, inside this new destination folder.</div>
-                                    <div className="flex items-center gap-2">
-                                      <Select
-                                        open={bulkFolderDropdownOpen}
-                                        onDropdownVisibleChange={setBulkFolderDropdownOpen}
-                                        value={bulkSelectedFolder || undefined}
-                                        style={{ minWidth: 220, borderRadius: 8 }}
-                                        placeholder="Choose folder"
-                                        onChange={val => {
-                                          setBulkSelectedFolder(val);
-                                          setBulkShowSave(Boolean(val && val !== '+ New folder'));
-                                          if (val !== '+ New folder') setBulkNewFolderInput('');
-                                        }}
-                                        dropdownRender={menu => (
-                                          <>
-                                            <div style={{ padding: 8, borderBottom: '1px solid #eee' }}>
-                                              <span className="font-semibold text-xs">Choose a folder</span>
-                                            </div>
-                                            {menu}
-                                          </>
-                                        )}
-                                        options={bulkFolderOptions.map(opt => ({ label: opt, value: opt }))}
-                                      />
-                                      {bulkSelectedFolder === '+ New folder' && (
-                                        <Input
-                                          autoFocus
-                                          size="small"
-                                          style={{ width: 180, borderRadius: 8 }}
-                                          placeholder="New folder name"
-                                          value={bulkNewFolderInput}
-                                          onChange={e => setBulkNewFolderInput(e.target.value)}
-                                          onPressEnter={e => {
-                                            const val = bulkNewFolderInput.trim();
-                                            if (val) {
-                                              setBulkSelectedFolder(val);
-                                              setBulkShowSave(true);
-                                              setBulkFolderDropdownOpen(false);
-                                            }
-                                          }}
-                                        />
-                                      )}
-                                    </div>
-                                    {/* Show SAVE button after folder selection/input */}
-                                    {bulkShowSave && (
-                                      <Button
-                                        type="primary"
-                                        style={{ marginTop: 8, borderRadius: 8, background: '#FF5669', border: 'none', width: 120 }}
-                                        disabled={bulkSelectedFolder === '+ New folder' || !bulkSelectedFolder}
-                                        onClick={() => {
-                                          setBulkSaveSuccess(true);
-                                          setTimeout(() => setBulkSaveSuccess(false), 5000);
-                                        }}
-                                      >
-                                        Save
-                                      </Button>
-                                    )}
-                                  </div>
-                                </Card>
-                              </div>
-                            )}
-                            {/* Bulk upload folder save success message */}
-                            {selectedZipFile && bulkSaveSuccess && msg.role === 'system-progress' && idx === 1 && bulkUploadProgress === bulkUploadTotal && bulkUploadTotal > 0 && (
-                              <div className="flex justify-start w-full mt-2">
-                                <Card
-                                  size="small"
-                                  style={{ background: 'transparent', boxShadow: 'none', border: 'none', color: darkMode ? '#fff' : '#222', width: '100%' }}
-                                  bodyStyle={{ padding: 0 }}
-                                >
-                                  <div className="flex flex-col gap-2">
-                                    <div className="font-semibold text-sm mb-1">{bulkUploadDocCount} documents saved to {bulkSelectedFolder}.</div>
-                                    <div className="text-xs text-gray-400 mb-2">Can Concord AI help you with anything else?</div>
-                                  </div>
-                                </Card>
-                              </div>
-                            )}
+
+
                             {/* Staged file card */}
                             {idx === 0 && msg.role === 'assistant' && msg.content.startsWith('We detected that') && (
                               stagedStep === 0 ? (
@@ -1560,8 +1675,513 @@ function App() {
                   {/* Bulk upload ZIP experience */}
                   {selectedZipFile ? (
                     <div className="flex-1 flex flex-col p-6 overflow-y-auto min-h-0">
-                      {/* Only show log/tree toggle and content, not the progress card */}
-                      {showBulkTree ? (
+                      {/* Show review interface when analysis is complete */}
+                      {(() => {
+                        console.log('showBulkReview:', showBulkReview, 'bulkImportCompleted:', bulkImportCompleted);
+                        console.log('bulkExtractedData count:', Object.keys(bulkExtractedData).length);
+                        return null;
+                      })()}
+                      {showBulkReview ? (
+                        <div className="w-full">
+                          {bulkImportCompleted && (
+                            <Alert
+                              message="Import Completed Successfully!"
+                              description={`${Object.values(bulkExtractedData).filter(d => d.status === 'signed').length} signed contracts and ${Object.values(bulkExtractedData).filter(d => d.status === 'template').length} templates have been imported to your document library.`}
+                              type="success"
+                              showIcon
+                              closable
+                              style={{ marginBottom: 16 }}
+                              action={
+                                <Space>
+                                  <Button size="small" type="primary" onClick={() => setSelectedPage('contracts')}>
+                                    View Contracts
+                                  </Button>
+                                  <Button size="small" onClick={() => {
+                                    // Reset for new import
+                                    setSelectedZipFile(null);
+                                    setBulkUploadDocCount(0);
+                                    setBulkUploadFolderCount(0);
+                                    setBulkUploadProgress(0);
+                                    setBulkUploadTotal(0);
+                                    setBulkExtractedData({});
+                                    setShowBulkReview(false);
+                                    setBulkAnalysisProgress(0);
+                                    setBulkImportCompleted(false);
+                                    setCurrentFolderPath([]);
+                                    setSelectedFiles(new Set());
+                                    setChatMessages([]);
+                                  }}>
+                                    New Import
+                                  </Button>
+                                </Space>
+                              }
+                            />
+                          )}
+                          <Tabs 
+                            activeKey={bulkReviewTab}
+                            onChange={(key) => setBulkReviewTab(key as 'table' | 'folders')}
+                            items={[
+                              {
+                                key: 'table',
+                                label: 'Contract Table',
+                                children: (
+                                  <div className="mt-4">
+                                    <div className="mb-4">
+                                      <Alert
+                                        message="Signed Contracts Analysis"
+                                        description={
+                                          bulkAnalysisActive 
+                                            ? `Analyzing documents... ${bulkAnalysisProgress}/${bulkUploadTotal} processed. Found ${Object.values(bulkExtractedData).filter(d => d.status === 'signed').length} signed contracts so far.`
+                                            : `${Object.values(bulkExtractedData).filter(d => d.status === 'signed').length} signed contracts detected out of ${bulkUploadTotal} total documents`
+                                        }
+                                        type={bulkAnalysisActive ? "warning" : "info"}
+                                        showIcon
+                                      />
+                                    </div>
+                                    <Table
+                                      loading={bulkAnalysisActive && bulkAnalysisProgress < bulkUploadTotal}
+                                      dataSource={Object.entries(bulkExtractedData)
+                                        .filter(([_, data]) => data.status === 'signed')
+                                        .map(([fileName, data], index) => ({
+                                          key: index,
+                                          title: fileName,
+                                          parties: data.parties.join(', '),
+                                          effectiveDate: data.dates.effective || '-',
+                                          expirationDate: data.dates.expiry || '-',
+                                          renewalDate: data.dates.renewal || '-',
+                                          agreementCategory: data.agreementCategory,
+                                          documentType: data.docType,
+                                          totalValue: data.totalAgreementValue !== 'N/A' ? data.totalAgreementValue : '-',
+                                          stage: 'Signed',
+                                          status: data.dates.expiry && new Date(data.dates.expiry) < new Date() ? 'Expired' : 'Active'
+                                        }))}
+                                      columns={[
+                                        {
+                                          title: 'Title',
+                                          dataIndex: 'title',
+                                          key: 'title',
+                                          width: 250,
+                                          ellipsis: true,
+                                          render: (text: string) => <span className="font-medium">{text}</span>
+                                        },
+                                        {
+                                          title: 'Parties',
+                                          dataIndex: 'parties',
+                                          key: 'parties',
+                                          width: 250,
+                                          ellipsis: true,
+                                        },
+                                        {
+                                          title: 'Effective Date',
+                                          dataIndex: 'effectiveDate',
+                                          key: 'effectiveDate',
+                                          width: 120,
+                                        },
+                                        {
+                                          title: 'Expiration Date',
+                                          dataIndex: 'expirationDate',
+                                          key: 'expirationDate',
+                                          width: 120,
+                                        },
+                                        {
+                                          title: 'Renewal Date',
+                                          dataIndex: 'renewalDate',
+                                          key: 'renewalDate',
+                                          width: 120,
+                                        },
+                                        {
+                                          title: 'Agreement Category',
+                                          dataIndex: 'agreementCategory',
+                                          key: 'agreementCategory',
+                                          width: 180,
+                                          filters: [...new Set(Object.values(bulkExtractedData).map(d => d.agreementCategory))].map(cat => ({ text: cat, value: cat })),
+                                          onFilter: (value, record) => record.agreementCategory === value,
+                                        },
+                                        {
+                                          title: 'Document Type',
+                                          dataIndex: 'documentType',
+                                          key: 'documentType',
+                                          width: 220,
+                                        },
+                                        {
+                                          title: 'Total Value',
+                                          dataIndex: 'totalValue',
+                                          key: 'totalValue',
+                                          width: 150,
+                                          align: 'right',
+                                          render: (value: string) => (
+                                            <span className={value !== '-' ? 'font-semibold text-green-600' : ''}>{value}</span>
+                                          ),
+                                        },
+                                        {
+                                          title: 'Stage',
+                                          dataIndex: 'stage',
+                                          key: 'stage',
+                                          width: 100,
+                                          render: (stage: string) => (
+                                            <Tag color="green">{stage}</Tag>
+                                          ),
+                                        },
+                                        {
+                                          title: 'Status',
+                                          dataIndex: 'status',
+                                          key: 'status',
+                                          width: 100,
+                                          render: (status: string) => (
+                                            <Tag color={status === 'Active' ? 'blue' : 'red'}>{status}</Tag>
+                                          ),
+                                        },
+                                      ]}
+                                      scroll={{ x: 1700, y: 400 }}
+                                      pagination={{ pageSize: 20 }}
+                                      size="small"
+                                      style={{ 
+                                        background: darkMode ? '#1a1a1a' : '#fff',
+                                        borderRadius: 8,
+                                      }}
+                                    />
+                                    <div className="mt-4 flex justify-between items-center">
+                                      <div className="text-sm text-gray-500">
+                                        Showing {Object.values(bulkExtractedData).filter(d => d.status === 'signed').length} signed contracts
+                                      </div>
+                                      <Button 
+                                        type="default"
+                                        icon={<ExportOutlined />}
+                                        onClick={() => message.info('Export functionality would be implemented here')}
+                                      >
+                                        Export to CSV
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )
+                              },
+                              {
+                                key: 'folders',
+                                label: 'Folder Navigation',
+                                children: (
+                                  <div className="mt-4">
+                                    {/* Header with breadcrumb navigation */}
+                                    <div className="mb-4">
+                                      <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                          {/* Breadcrumb navigation */}
+                                          <div className="flex items-center text-sm">
+                                            <Button 
+                                              type="text" 
+                                              size="small"
+                                              icon={<FolderOutlined />}
+                                              onClick={() => setCurrentFolderPath([])}
+                                              className="px-2"
+                                            >
+                                              My Contracts
+                                            </Button>
+                                            {currentFolderPath.map((folder, index) => (
+                                              <React.Fragment key={index}>
+                                                <span className="mx-1 text-gray-400">/</span>
+                                                <Button
+                                                  type="text"
+                                                  size="small"
+                                                  onClick={() => setCurrentFolderPath(currentFolderPath.slice(0, index + 1))}
+                                                  className="px-2"
+                                                >
+                                                  {folder}
+                                                </Button>
+                                              </React.Fragment>
+                                            ))}
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          {selectedFiles.size > 0 && (
+                                            <span className="text-sm text-gray-500">
+                                              {selectedFiles.size} selected
+                                            </span>
+                                          )}
+                                          <Button
+                                            type={bulkImportCompleted ? "default" : "primary"}
+                                            icon={bulkImportCompleted ? <CheckOutlined style={{ color: '#52c41a' }} /> : <CheckOutlined />}
+                                            onClick={() => {
+                                              if (!bulkImportCompleted) {
+                                                message.success('All documents imported and organized successfully!');
+                                                setBulkImportCompleted(true);
+                                              }
+                                            }}
+                                            disabled={bulkImportCompleted}
+                                          >
+                                            {bulkImportCompleted ? 'Documents Imported' : 'Import All Documents'}
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Modern Google Drive-like folder view */}
+                                    <div className="border rounded-lg overflow-hidden" style={{ 
+                                      background: darkMode ? '#1a1a1a' : '#ffffff',
+                                      minHeight: 500
+                                    }}>
+                                      {/* Toolbar */}
+                                      <div className="border-b px-4 py-2" style={{ borderColor: darkMode ? '#333' : '#e0e0e0' }}>
+                                        <div className="flex items-center justify-between">
+                                          <div className="text-sm text-gray-500">
+                                            {(() => {
+                                              // Build folder structure first to count items
+                                              const folderStructure: Record<string, any> = {};
+                                              Object.entries(bulkExtractedData).forEach(([fileName, data]) => {
+                                                const folderPath = data.suggestedFolder;
+                                                const parts = folderPath.split('/');
+                                                
+                                                let current = folderStructure;
+                                                parts.forEach((part, index) => {
+                                                  if (!current[part]) {
+                                                    current[part] = { _files: [], _subfolders: {} };
+                                                  }
+                                                  if (index < parts.length - 1) {
+                                                    current = current[part]._subfolders;
+                                                  }
+                                                });
+                                                
+                                                const deepestFolder = parts.reduce((acc, part, index) => {
+                                                  if (index === 0) return acc[part];
+                                                  return acc._subfolders[part];
+                                                }, folderStructure);
+                                                deepestFolder._files.push({ fileName, data });
+                                              });
+                                              
+                                              // Get current folder
+                                              let currentFolder = folderStructure;
+                                              for (const folder of currentFolderPath) {
+                                                currentFolder = currentFolder[folder]?._subfolders || {};
+                                              }
+                                              
+                                              const folderCount = Object.entries(currentFolder)
+                                                .filter(([_, content]: [string, any]) => content._subfolders || content._files).length;
+                                              const fileCount = (() => {
+                                                if (currentFolderPath.length === 0) {
+                                                  return Object.entries(bulkExtractedData)
+                                                    .filter(([_, data]) => !data.suggestedFolder.includes('/')).length;
+                                                } else {
+                                                  let folder = folderStructure;
+                                                  for (let i = 0; i < currentFolderPath.length; i++) {
+                                                    const pathPart = currentFolderPath[i];
+                                                    if (i === currentFolderPath.length - 1) {
+                                                      return folder[pathPart]?._files?.length || 0;
+                                                    } else {
+                                                      folder = folder[pathPart]?._subfolders || {};
+                                                    }
+                                                  }
+                                                  return 0;
+                                                }
+                                              })();
+                                              return `${folderCount} folders, ${fileCount} files`;
+                                            })()}
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <Button 
+                                              type="text" 
+                                              size="small"
+                                              icon={<SettingOutlined />}
+                                              className="px-2"
+                                            >
+                                              View options
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      {(() => {
+                                        // Build folder structure
+                                        const folderStructure: Record<string, any> = {};
+                                        
+                                        Object.entries(bulkExtractedData).forEach(([fileName, data]) => {
+                                          const folderPath = data.suggestedFolder;
+                                          const parts = folderPath.split('/');
+                                          
+                                          let current = folderStructure;
+                                          parts.forEach((part, index) => {
+                                            if (!current[part]) {
+                                              current[part] = { _files: [], _subfolders: {} };
+                                            }
+                                            if (index < parts.length - 1) {
+                                              current = current[part]._subfolders;
+                                            }
+                                          });
+                                          
+                                          // Add file to the deepest folder
+                                          const deepestFolder = parts.reduce((acc, part, index) => {
+                                            if (index === 0) return acc[part];
+                                            return acc._subfolders[part];
+                                          }, folderStructure);
+                                          deepestFolder._files.push({ fileName, data });
+                                        });
+                                        
+                                        // Get current folder content
+                                        let currentFolder = folderStructure;
+                                        for (const folder of currentFolderPath) {
+                                          currentFolder = currentFolder[folder]?._subfolders || {};
+                                        }
+                                        
+                                        const folders = Object.entries(currentFolder)
+                                          .filter(([_, content]: [string, any]) => content._subfolders || content._files)
+                                          .map(([name, content]: [string, any]) => ({
+                                            name,
+                                            isFolder: true,
+                                            fileCount: content._files?.length || 0,
+                                            subfolderCount: Object.keys(content._subfolders || {}).length
+                                          }));
+                                        
+                                        const files = (() => {
+                                          if (currentFolderPath.length === 0) {
+                                            // Show files that are not in any subfolder (root level files)
+                                            return Object.entries(bulkExtractedData)
+                                              .filter(([_, data]) => !data.suggestedFolder.includes('/'))
+                                              .map(([fileName, data]) => ({ fileName, data }));
+                                          } else {
+                                            // Navigate to the current folder
+                                            let folder = folderStructure;
+                                            for (let i = 0; i < currentFolderPath.length; i++) {
+                                              const pathPart = currentFolderPath[i];
+                                              if (i === currentFolderPath.length - 1) {
+                                                // Last part - return files from this folder
+                                                return folder[pathPart]?._files || [];
+                                              } else {
+                                                // Navigate deeper
+                                                folder = folder[pathPart]?._subfolders || {};
+                                              }
+                                            }
+                                            return [];
+                                          }
+                                        })();
+                                        
+                                                                                  return (
+                                            <div>
+                                              {/* Table headers */}
+                                              <div className="px-4 py-2 border-b flex items-center justify-between text-xs font-medium uppercase tracking-wider" 
+                                                style={{ 
+                                                  borderColor: darkMode ? '#333' : '#e0e0e0',
+                                                  color: darkMode ? '#9ca3af' : '#6b7280'
+                                                }}>
+                                                <div className="flex items-center gap-3">
+                                                  <Checkbox 
+                                                    checked={files.length > 0 && selectedFiles.size === files.length}
+                                                    indeterminate={selectedFiles.size > 0 && selectedFiles.size < files.length}
+                                                    onChange={(e) => {
+                                                      if (e.target.checked) {
+                                                        setSelectedFiles(new Set(files.map((f: any) => f.fileName)));
+                                                      } else {
+                                                        setSelectedFiles(new Set());
+                                                      }
+                                                    }}
+                                                    style={{ marginLeft: 4 }}
+                                                  />
+                                                  <div style={{ width: 20 }}></div>
+                                                  <div>Name</div>
+                                                </div>
+                                                <div className="flex items-center gap-8">
+                                                  <div style={{ width: 80 }}>Status</div>
+                                                  <div style={{ width: 100 }}>Value</div>
+                                                  <div style={{ width: 100 }}>Date</div>
+                                                </div>
+                                              </div>
+                                              
+                                              {/* List view of folders and files */}
+                                              <div className="divide-y" style={{ borderColor: darkMode ? '#333' : '#e0e0e0' }}>
+                                                {/* Folders */}
+                                                {folders.map(({ name, fileCount, subfolderCount }) => (
+                                                  <div
+                                                    key={name}
+                                                    onClick={() => setCurrentFolderPath([...currentFolderPath, name])}
+                                                    className="group cursor-pointer px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-150 flex items-center justify-between"
+                                                  >
+                                                    <div className="flex items-center gap-3">
+                                                      <div style={{ width: 24 }}></div>
+                                                      <FolderOutlined style={{ fontSize: 20, color: '#1890ff' }} />
+                                                      <div>
+                                                        <div className="font-medium text-sm group-hover:text-blue-600">{name}</div>
+                                                        <div className="text-xs text-gray-500">
+                                                          {fileCount > 0 && `${fileCount} files`}
+                                                          {fileCount > 0 && subfolderCount > 0 && ', '}
+                                                          {subfolderCount > 0 && `${subfolderCount} folders`}
+                                                        </div>
+                                                      </div>
+                                                    </div>
+                                                    <RightOutlined className="text-gray-400 text-xs" />
+                                                  </div>
+                                                ))}
+                                                
+                                                {/* Files */}
+                                                {files.map(({ fileName, data }: any) => (
+                                                  <div
+                                                    key={fileName}
+                                                    className="group cursor-pointer px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-150"
+                                                    style={{
+                                                      background: selectedFiles.has(fileName) ? (darkMode ? 'rgba(24, 144, 255, 0.1)' : 'rgba(24, 144, 255, 0.05)') : 'transparent'
+                                                    }}
+                                                    onClick={() => {
+                                                      const newSelected = new Set(selectedFiles);
+                                                      if (newSelected.has(fileName)) {
+                                                        newSelected.delete(fileName);
+                                                      } else {
+                                                        newSelected.add(fileName);
+                                                      }
+                                                      setSelectedFiles(newSelected);
+                                                    }}
+                                                  >
+                                                    <div className="flex items-center justify-between">
+                                                      <div className="flex items-center gap-3">
+                                                        <Checkbox 
+                                                          checked={selectedFiles.has(fileName)}
+                                                          onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                        <FileTextOutlined style={{ fontSize: 20, color: '#52c41a' }} />
+                                                        <div>
+                                                          <div className="font-medium text-sm group-hover:text-green-600">{fileName}</div>
+                                                          <div className="text-xs text-gray-500">{data.docType} • {data.parties[0]}</div>
+                                                        </div>
+                                                      </div>
+                                                      <div className="flex items-center gap-8 text-xs">
+                                                        <div style={{ width: 80 }}>
+                                                          <Tag color="green" style={{ fontSize: '11px', margin: 0 }}>{data.status}</Tag>
+                                                        </div>
+                                                        <div style={{ width: 100 }} className="text-green-600 font-medium">
+                                                          {data.totalAgreementValue !== 'N/A' ? data.totalAgreementValue : '-'}
+                                                        </div>
+                                                        <div style={{ width: 100 }} className="text-gray-500">
+                                                          {data.dates.effective || '-'}
+                                                        </div>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                              
+                                              {/* Empty state */}
+                                              {folders.length === 0 && files.length === 0 && (
+                                                <div className="text-center py-16 text-gray-500">
+                                                  <FolderOpenOutlined style={{ fontSize: 64, marginBottom: 16, opacity: 0.3 }} />
+                                                  <div>This folder is empty</div>
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                      })()}
+                                    </div>
+                                    
+                                    <Alert
+                                      message="AI-Powered Organization"
+                                      description={
+                                        bulkAnalysisActive
+                                          ? `AI is organizing documents... ${bulkAnalysisProgress}/${bulkUploadTotal} analyzed into ${new Set(Object.values(bulkExtractedData).map(d => d.suggestedFolder)).size} folders.`
+                                          : `Documents have been automatically categorized into ${new Set(Object.values(bulkExtractedData).map(d => d.suggestedFolder)).size} folders based on their content, type, and status.`
+                                      }
+                                      type={bulkAnalysisActive ? "info" : "success"}
+                                      showIcon
+                                      style={{ marginTop: 16 }}
+                                    />
+                                  </div>
+                                )
+                              }
+                            ]}
+                          />
+                        </div>
+                      ) : showBulkTree ? (
                         <Card
                           size="small"
                           title={<span className="font-semibold text-sm flex items-center"><FolderOpenOutlined className="mr-2" />File/Folder Tree</span>}
