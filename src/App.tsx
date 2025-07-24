@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Input, Table, Tag, Avatar, Dropdown, Space, ConfigProvider, theme as antdTheme, Segmented, Select, Modal, Upload, message, Card, Collapse, Tree, Skeleton, DatePicker, Tabs, Alert, Checkbox } from 'antd';
-import { PlusOutlined, UserOutlined, BellOutlined, FileTextOutlined, SettingOutlined, LogoutOutlined, BulbOutlined, BulbFilled, ArrowUpOutlined, PaperClipOutlined, CloseOutlined, MessageOutlined, ArrowRightOutlined, FolderOutlined, DownOutlined, RightOutlined, CalendarOutlined, TagsOutlined, FileZipOutlined, FolderOpenOutlined, CheckOutlined, EditOutlined, InfoCircleOutlined, ExportOutlined } from '@ant-design/icons';
+import { Layout, Menu, Button, Input, Table, Tag, Avatar, Dropdown, Space, ConfigProvider, theme as antdTheme, Segmented, Select, Modal, Upload, message, Card, Collapse, Tree, Skeleton, DatePicker, Tabs, Alert, Checkbox, Statistic, Switch, Progress, Badge, Divider } from 'antd';
+import { PlusOutlined, UserOutlined, BellOutlined, FileTextOutlined, SettingOutlined, LogoutOutlined, BulbOutlined, BulbFilled, ArrowUpOutlined, PaperClipOutlined, CloseOutlined, MessageOutlined, ArrowRightOutlined, FolderOutlined, DownOutlined, RightOutlined, CalendarOutlined, TagsOutlined, FileZipOutlined, FolderOpenOutlined, CheckOutlined, EditOutlined, InfoCircleOutlined, ExportOutlined, FileDoneOutlined, FileExclamationOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { MenuInfo } from 'rc-menu/lib/interface';
 import dayjs from 'dayjs';
 import JSZip from 'jszip';
 import type { DataNode } from 'antd/es/tree';
+// Removed unused recharts imports for cleaner code
 
 const { Header, Sider, Content } = Layout;
 
@@ -797,6 +798,81 @@ function App() {
   const [currentFolderPath, setCurrentFolderPath] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
 
+  // Add state for upload summary dashboard
+  const [uploadSummary, setUploadSummary] = useState<{
+    totalDocuments: number;
+    successfulUploads: number;
+    failedUploads: number;
+    failedDetails: Array<{ fileName: string; reason: string; error: string }>;
+  }>({
+    totalDocuments: 0,
+    successfulUploads: 0,
+    failedUploads: 0,
+    failedDetails: []
+  });
+  const [showFailedDetails, setShowFailedDetails] = useState(false);
+  
+  // Custom properties state
+  const [systemProperties] = useState([
+    { id: 'department', name: 'Department', type: 'select', options: ['Legal', 'Finance', 'HR', 'Sales', 'Engineering'] },
+    { id: 'priority', name: 'Priority', type: 'select', options: ['High', 'Medium', 'Low'] },
+    { id: 'client_type', name: 'Client Type', type: 'select', options: ['Enterprise', 'SMB', 'Individual'] },
+    { id: 'retention_period', name: 'Retention Period', type: 'select', options: ['1 Year', '3 Years', '5 Years', '7 Years', 'Permanent'] },
+    { id: 'jurisdiction', name: 'Jurisdiction', type: 'text' },
+    { id: 'contract_value', name: 'Contract Value', type: 'number' },
+    { id: 'review_date', name: 'Review Date', type: 'date' }
+  ]);
+  const [selectedProperties, setSelectedProperties] = useState<string[]>([]);
+  const [propertyValues, setPropertyValues] = useState<Record<string, any>>({});
+  
+  // AI Organize state
+  const [showAIOrganize, setShowAIOrganize] = useState(false);
+  const [aiSuggestedStructure, setAISuggestedStructure] = useState<{
+    folders: Array<{
+      name: string;
+      path: string;
+      count: number;
+      confidence: number;
+      logic: string;
+      documents: string[];
+    }>;
+    organizationLogic: string;
+  } | null>(null);
+  
+  // Duplicate detection state
+  const [duplicateGroups, setDuplicateGroups] = useState<Array<{
+    documents: Array<{
+      fileName: string;
+      data: {
+        docType: string;
+        parties: string[];
+        dates: Record<string, string>;
+        status?: string;
+        [key: string]: any;
+      };
+      isExisting?: boolean;
+    }>;
+    similarity: number;
+    action: 'pending' | 'keep_both' | 'replace' | 'skip';
+  }>>([]);
+  const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [selectedDuplicateGroup, setSelectedDuplicateGroup] = useState<number | null>(null);
+  
+  // Time tracking state for progress estimates
+  const [uploadStartTime, setUploadStartTime] = useState<number | null>(null);
+  const [analysisStartTime, setAnalysisStartTime] = useState<number | null>(null);
+  const [uploadTimeEstimate, setUploadTimeEstimate] = useState<string>('Calculating...');
+  const [analysisTimeEstimate, setAnalysisTimeEstimate] = useState<string>('Calculating...');
+  const [lastProgressUpdate, setLastProgressUpdate] = useState<number>(0);
+  
+  // Folder selection state
+  const [userSelectedFolders, setUserSelectedFolders] = useState<Record<string, string>>({});
+  const [showFolderModal, setShowFolderModal] = useState<boolean>(false);
+  const [selectedDocumentForFolder, setSelectedDocumentForFolder] = useState<string | null>(null);
+
+
+
   // Simulate ZIP processing and upload when selectedZipFile is set
   useEffect(() => {
     if (
@@ -809,20 +885,54 @@ function App() {
       setBulkUploadLog([]);
       setBulkUploadActive(true);
       setBulkUploadAnimating(true);
+      setUploadStartTime(Date.now());
+      setUploadTimeEstimate('Calculating...');
       setChatMessages(prev => [
         ...prev,
         { role: 'assistant', content: `Bulk upload started for ${bulkUploadDocCount} documents in ${bulkUploadFolderCount} folders. AI will automatically extract document information, classify documents, and suggest organization.` },
         { role: 'system-progress', content: 'Document upload in progress' }
       ]);
+      
+      // Show summary dashboard immediately
+      setShowBulkReview(true);
+      
       let progress = 0;
       const log: string[] = [];
+      const failedFiles: Array<{ fileName: string; reason: string; error: string }> = [];
+      
       function uploadNext() {
         if (progress < bulkUploadTotal) {
           setTimeout(() => {
             progress++;
+            
+            // Simulate some failures (10% failure rate)
+            const isFailure = Math.random() < 0.1;
+            if (isFailure) {
+              const errorTypes = [
+                { reason: 'FILE_TOO_LARGE', error: 'File exceeds 50MB limit' },
+                { reason: 'INVALID_FORMAT', error: 'Unsupported file format' },
+                { reason: 'CORRUPTED_FILE', error: 'File appears to be corrupted' },
+                { reason: 'ACCESS_DENIED', error: 'Insufficient permissions' }
+              ];
+              const error = errorTypes[Math.floor(Math.random() * errorTypes.length)];
+              failedFiles.push({ 
+                fileName: `Document_${progress}.pdf`, 
+                ...error 
+              });
+            }
+            
             log.push(`Uploaded document ${progress} of ${bulkUploadTotal}`);
             setBulkUploadProgress(progress);
             setBulkUploadLog([...log]);
+            
+            // Update summary progressively
+            setUploadSummary({
+              totalDocuments: bulkUploadTotal,
+              successfulUploads: progress - failedFiles.length,
+              failedUploads: failedFiles.length,
+              failedDetails: [...failedFiles]
+            });
+            
             uploadNext();
           }, 800);
         } else {
@@ -834,6 +944,8 @@ function App() {
               ? { ...m, content: `${bulkUploadTotal} / ${bulkUploadTotal} documents uploaded successfully` }
               : m
           ));
+          // Start analysis automatically
+          analyzeBulkDocuments();
         }
       }
       uploadNext();
@@ -853,6 +965,8 @@ function App() {
   const analyzeBulkDocuments = async () => {
     setBulkAnalysisActive(true);
     setBulkAnalysisProgress(0);
+    setAnalysisStartTime(Date.now());
+    setAnalysisTimeEstimate('Calculating...');
     // Start with empty data - we'll build it progressively
     setBulkExtractedData({});
     
@@ -888,16 +1002,44 @@ function App() {
       if (analyzed < bulkUploadTotal) {
               setTimeout(() => {
         analyzed++;
-        // Start showing the review tabs as soon as we have some data
-        if (analyzed === 1) {
-          setShowBulkReview(true);
+
+        // Create some intentional duplicates for demonstration
+        let isTemplate, isSigned, category, docType, company, year;
+        
+        // Files 3-5 and 8-10 will be duplicates/similar to demonstrate duplicate detection
+        if ((analyzed >= 3 && analyzed <= 5) || (analyzed >= 8 && analyzed <= 10)) {
+          // Create similar documents to trigger duplicate detection
+          if (analyzed === 3 || analyzed === 8) {
+            category = 'Service Agreement';
+            docType = 'Service Agreement';
+            company = 'TechCorp';
+            year = '2023';
+            isTemplate = false;
+            isSigned = true;
+          } else if (analyzed === 4 || analyzed === 9) {
+            category = 'NDA';
+            docType = 'Non-Disclosure Agreement';
+            company = 'Global Partners';
+            year = '2023';
+            isTemplate = false;
+            isSigned = true;
+          } else {
+            category = 'Service Agreement';
+            docType = 'Service Agreement';
+            company = 'TechCorp';  // Same company as file 3/8
+            year = '2024';  // Different year
+            isTemplate = false;
+            isSigned = true;
+          }
+        } else {
+          // Random generation for other files
+          isTemplate = Math.random() > 0.8;
+          isSigned = !isTemplate && Math.random() > 0.3;
+          category = categories[Math.floor(Math.random() * categories.length)];
+          docType = docTypesByCategory[category][Math.floor(Math.random() * docTypesByCategory[category].length)];
+          company = companies[Math.floor(Math.random() * companies.length)];
+          year = isSigned ? (Math.random() > 0.5 ? '2024' : '2023') : '2024';
         }
-        const isTemplate = Math.random() > 0.8;
-          const isSigned = !isTemplate && Math.random() > 0.3;
-          const category = categories[Math.floor(Math.random() * categories.length)];
-          const docType = docTypesByCategory[category][Math.floor(Math.random() * docTypesByCategory[category].length)];
-          const company = companies[Math.floor(Math.random() * companies.length)];
-          const year = isSigned ? (Math.random() > 0.5 ? '2024' : '2023') : '2024';
           
           // Generate realistic file path
           const fileName = isTemplate 
@@ -920,7 +1062,7 @@ function App() {
           
           const newData = {
             docType: docType,
-            parties: isSigned ? [company, 'S-Corp Inc.'] : ['[Party 1]', '[Party 2]'],
+            parties: isSigned ? [company, 'Our Company'] : ['[Party 1]', '[Party 2]'],
             dates: {
               effective: year + '-' + String(Math.floor(Math.random() * 12) + 1).padStart(2, '0') + '-' + String(Math.floor(Math.random() * 28) + 1).padStart(2, '0'),
               renewal: (parseInt(year) + 1) + '-' + String(Math.floor(Math.random() * 12) + 1).padStart(2, '0') + '-' + String(Math.floor(Math.random() * 28) + 1).padStart(2, '0'),
@@ -942,7 +1084,7 @@ function App() {
                category === 'Service Agreement' ? 'Monthly retainer + hourly rates' :
                'Non-monetary agreement') : 'To be determined',
             signers: isSigned ? 
-              [employees[Math.floor(Math.random() * employees.length)] + ' (S-Corp)', 
+              [employees[Math.floor(Math.random() * employees.length)] + ' (Our Company)', 
                'Authorized Representative (' + company + ')'] : 
               [],
             originalPath: originalPath
@@ -970,6 +1112,63 @@ function App() {
       analyzeBulkDocuments();
     }
   }, [bulkUploadActive, bulkUploadTotal, bulkAnalysisActive, bulkExtractedData]);
+  
+  // Run duplicate detection whenever bulk extracted data changes
+  useEffect(() => {
+    const documentCount = Object.keys(bulkExtractedData).length;
+    if (documentCount > 0 && !bulkAnalysisActive) {
+      console.log('Running duplicate detection for', documentCount, 'documents');
+      detectDuplicates();
+    }
+  }, [bulkExtractedData, bulkAnalysisActive]);
+  
+  // Helper function to format time estimates
+  const formatTimeEstimate = (seconds: number): string => {
+    if (seconds < 60) {
+      return 'Less than 1 minute';
+    } else if (seconds < 120) {
+      return '1 minute';
+    } else {
+      const minutes = Math.ceil(seconds / 60);
+      return `${minutes} minutes`;
+    }
+  };
+  
+  // Helper function to get historical average time
+  const getHistoricalAverage = (docCount: number): string => {
+    // Simulated historical data - in real app, this would come from backend
+    const avgTimePerDoc = 2.5; // seconds per document
+    const totalSeconds = docCount * avgTimePerDoc;
+    return formatTimeEstimate(totalSeconds);
+  };
+  
+  // Update time estimates every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      
+      // Update upload time estimate
+      if (bulkUploadActive && uploadStartTime && bulkUploadProgress > 0) {
+        const elapsedSeconds = (now - uploadStartTime) / 1000;
+        const docsPerSecond = bulkUploadProgress / elapsedSeconds;
+        const remainingDocs = bulkUploadTotal - bulkUploadProgress;
+        const estimatedSecondsRemaining = remainingDocs / docsPerSecond;
+        setUploadTimeEstimate(formatTimeEstimate(estimatedSecondsRemaining));
+      }
+      
+      // Update analysis time estimate
+      if (bulkAnalysisActive && analysisStartTime && bulkAnalysisProgress > 0) {
+        const elapsedSeconds = (now - analysisStartTime) / 1000;
+        const docsPerSecond = bulkAnalysisProgress / elapsedSeconds;
+        const remainingDocs = bulkUploadTotal - bulkAnalysisProgress;
+        const estimatedSecondsRemaining = remainingDocs / docsPerSecond;
+        setAnalysisTimeEstimate(formatTimeEstimate(estimatedSecondsRemaining));
+      }
+    }, 5000); // Update every 5 seconds
+    
+    return () => clearInterval(interval);
+  }, [bulkUploadActive, bulkAnalysisActive, uploadStartTime, analysisStartTime, 
+      bulkUploadProgress, bulkAnalysisProgress, bulkUploadTotal]);
 
   // Helper to build AntD tree from JSZip files
   function buildTreeFromZip(zip: JSZip): DataNode[] {
@@ -1081,6 +1280,14 @@ function App() {
                     style={{ width: `${bulkUploadTotal ? (bulkUploadProgress / bulkUploadTotal) * 100 : 0}%` }}
                   />
                 </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Estimated time remaining: {uploadTimeEstimate}
+                </div>
+                {bulkUploadProgress === 0 && (
+                  <div className="text-xs text-gray-400 dark:text-gray-500">
+                    Usually takes {getHistoricalAverage(bulkUploadTotal)} for this many documents
+                  </div>
+                )}
               </div>
               
               {/* Analysis Progress */}
@@ -1094,6 +1301,9 @@ function App() {
                     className="bg-blue-500 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${bulkUploadTotal ? (bulkAnalysisProgress / bulkUploadTotal) * 100 : 0}%` }}
                   />
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Estimated time remaining: {analysisTimeEstimate}
                 </div>
               </div>
             </div>
@@ -1138,6 +1348,215 @@ function App() {
     return { docCount, folderCount };
   }
 
+      // Calculate similarity between two documents
+    const calculateSimilarity = (doc1: any, doc2: any): number => {
+      let score = 0;
+      let factors = 0;
+      
+      // Compare titles/types (40% weight)
+      if (doc1.docType && doc2.docType) {
+        const titleSimilarity = doc1.docType.toLowerCase() === doc2.docType.toLowerCase() ? 1 : 
+          (doc1.docType.toLowerCase().includes(doc2.docType.toLowerCase()) || 
+           doc2.docType.toLowerCase().includes(doc1.docType.toLowerCase())) ? 0.7 : 0;
+        score += titleSimilarity * 0.4;
+        factors += 0.4;
+      }
+      
+      // Compare parties (40% weight)
+      if (doc1.parties && doc2.parties && doc1.parties.length > 0 && doc2.parties.length > 0) {
+        const commonParties = doc1.parties.filter((p1: string) => 
+          doc2.parties.some((p2: string) => p1.toLowerCase() === p2.toLowerCase())
+        );
+        const partySimilarity = commonParties.length / Math.max(doc1.parties.length, doc2.parties.length);
+        score += partySimilarity * 0.4;
+        factors += 0.4;
+      }
+      
+      // Compare dates (20% weight)
+      if (doc1.dates && doc2.dates) {
+        let dateSimilarity = 0;
+        if (doc1.dates.effective === doc2.dates.effective) dateSimilarity += 0.5;
+        if (doc1.dates.expiry === doc2.dates.expiry) dateSimilarity += 0.5;
+        score += dateSimilarity * 0.2;
+        factors += 0.2;
+      }
+      
+      return factors > 0 ? score / factors : 0;
+    };
+    
+    // Detect duplicates in bulk uploaded documents
+    const detectDuplicates = () => {
+      const documents = Object.entries(bulkExtractedData);
+      console.log('Detecting duplicates for', documents.length, 'documents');
+      const duplicates: typeof duplicateGroups = [];
+      const processed = new Set<string>();
+      
+      // Also check against existing documents (simulated)
+      const existingDocs = [
+        {
+          fileName: "Service Agreement - TechCorp 2023.pdf",
+          data: {
+            docType: "Service Agreement",
+            parties: ["TechCorp", "Our Company"],
+            dates: { effective: "2023-01-15", expiry: "2024-01-15" },
+            status: "signed",
+            confidence: 0.95,
+            suggestedFolder: "Contracts/Service Agreements",
+            extractedClauses: ["Payment Terms", "Service Scope", "Termination"],
+            keyTerms: ["monthly payment", "support services", "12 months"],
+            risks: ["Auto-renewal clause"],
+            obligations: ["Monthly service delivery", "24/7 support"],
+            fileName: "Service Agreement - TechCorp 2023.pdf",
+            uploadDate: "2023-01-10",
+            originalPath: "Documents/Contracts",
+            agreementCategory: "Service Agreement",
+            totalAgreementValue: "$50,000",
+            totalAgreementDescription: "Monthly service fees for 12 months",
+            signers: ["John Doe", "Jane Smith"]
+          }
+        },
+        {
+          fileName: "NDA - Global Partners.pdf",
+          data: {
+            docType: "Non-Disclosure Agreement",
+            parties: ["Global Partners", "Our Company"],
+            dates: { effective: "2023-06-01" },
+            status: "signed",
+            confidence: 0.92,
+            suggestedFolder: "Legal/NDAs",
+            extractedClauses: ["Confidentiality", "Non-Disclosure", "Term"],
+            keyTerms: ["confidential information", "5 years", "mutual"],
+            risks: [],
+            obligations: ["Maintain confidentiality", "Protect information"],
+            fileName: "NDA - Global Partners.pdf",
+            uploadDate: "2023-05-28",
+            originalPath: "Documents/Legal",
+            agreementCategory: "Non-Disclosure Agreement",
+            totalAgreementValue: "N/A",
+            totalAgreementDescription: "Mutual non-disclosure agreement",
+            signers: ["Alice Johnson", "Bob Williams"]
+          }
+        }
+      ];
+      
+      documents.forEach(([fileName1, doc1], index1) => {
+        if (processed.has(fileName1)) return;
+        
+        const group = {
+          documents: [{ fileName: fileName1, data: doc1 }],
+          similarity: 0,
+          action: 'pending' as const
+        };
+        
+        // Check against other uploaded documents
+        documents.forEach(([fileName2, doc2], index2) => {
+          if (index2 <= index1 || processed.has(fileName2)) return;
+          
+          const similarity = calculateSimilarity(doc1, doc2);
+          if (similarity >= 0.7) {
+            console.log(`Found duplicate: ${fileName1} and ${fileName2} with ${Math.round(similarity * 100)}% similarity`);
+            group.documents.push({ fileName: fileName2, data: doc2 });
+            group.similarity = Math.max(group.similarity, similarity);
+            processed.add(fileName2);
+          }
+        });
+        
+        // Check against existing documents
+        existingDocs.forEach(existing => {
+          const similarity = calculateSimilarity(doc1, existing.data);
+          console.log(`Checking ${fileName1} against existing ${existing.fileName}: ${Math.round(similarity * 100)}% similarity`);
+          if (similarity >= 0.7) {
+            console.log(`Found duplicate with existing: ${fileName1} and ${existing.fileName}`);
+            group.documents.push({ 
+              fileName: existing.fileName, 
+              data: existing.data, 
+              isExisting: true 
+            });
+            group.similarity = Math.max(group.similarity, similarity);
+          }
+        });
+        
+        if (group.documents.length > 1) {
+          duplicates.push(group);
+          processed.add(fileName1);
+        }
+      });
+      
+      console.log(`Found ${duplicates.length} duplicate groups`);
+      setDuplicateGroups(duplicates);
+    };
+
+    const generateAISuggestedStructure = () => {
+      // Analyze documents and create suggested folder structure
+      const documents = Object.entries(bulkExtractedData);
+      const suggestedFolders: Array<{
+        name: string;
+        path: string;
+        count: number;
+        confidence: number;
+        logic: string;
+        documents: string[];
+      }> = [];
+
+      // Group by status first (Active vs Archived)
+      const activeContracts = documents.filter(([_, doc]) => 
+        doc.status === 'signed' && (!doc.dates.expiry || new Date(doc.dates.expiry) >= new Date())
+      );
+      const archivedContracts = documents.filter(([_, doc]) => 
+        doc.status === 'signed' && doc.dates.expiry && new Date(doc.dates.expiry) < new Date()
+      );
+      const templates = documents.filter(([_, doc]) => doc.status === 'template');
+
+      // Organize active contracts by department/type
+      const departmentGroups: Record<string, string[]> = {};
+      activeContracts.forEach(([fileName, doc]) => {
+        const dept = doc.agreementCategory || 'General';
+        if (!departmentGroups[dept]) departmentGroups[dept] = [];
+        departmentGroups[dept].push(fileName);
+      });
+
+      // Create folder structure for active contracts
+      Object.entries(departmentGroups).forEach(([dept, files]) => {
+        suggestedFolders.push({
+          name: dept,
+          path: `Active Contracts/${dept}`,
+          count: files.length,
+          confidence: 0.85 + Math.random() * 0.15, // 85-100% confidence
+          logic: `Grouped by agreement category: ${dept}`,
+          documents: files
+        });
+      });
+
+      // Add archived contracts folder
+      if (archivedContracts.length > 0) {
+        suggestedFolders.push({
+          name: 'Archived Contracts',
+          path: 'Archived Contracts',
+          count: archivedContracts.length,
+          confidence: 0.95,
+          logic: 'Expired contracts automatically archived',
+          documents: archivedContracts.map(([fileName]) => fileName)
+        });
+      }
+
+      // Add templates folder
+      if (templates.length > 0) {
+        suggestedFolders.push({
+          name: 'Contract Templates',
+          path: 'Templates',
+          count: templates.length,
+          confidence: 0.90,
+          logic: 'Unsigned templates grouped separately',
+          documents: templates.map(([fileName]) => fileName)
+        });
+      }
+
+      setAISuggestedStructure({
+        folders: suggestedFolders,
+        organizationLogic: 'Documents organized by: 1) Status (Active/Archived), 2) Department/Category, 3) Document Type'
+      });
+    };
+
   // Clear bulk upload state on hard refresh
   useEffect(() => {
     const clearBulkUpload = () => {
@@ -1160,6 +1579,35 @@ function App() {
       setBulkImportCompleted(false);
       setCurrentFolderPath([]);
       setSelectedFiles(new Set());
+      
+      // Clear upload summary
+      setUploadSummary({
+        totalDocuments: 0,
+        successfulUploads: 0,
+        failedUploads: 0,
+        failedDetails: []
+      });
+      
+              // Clear custom properties
+        setSelectedProperties([]);
+        setPropertyValues({});
+        
+                // Clear AI organize state
+        setShowAIOrganize(false);
+        setAISuggestedStructure(null);
+        
+        // Clear duplicate detection state
+        setDuplicateGroups([]);
+        setShowDuplicatesOnly(false);
+        setShowDuplicateModal(false);
+        setSelectedDuplicateGroup(null);
+        
+        // Clear time tracking state
+        setUploadStartTime(null);
+        setAnalysisStartTime(null);
+        setUploadTimeEstimate('Calculating...');
+        setAnalysisTimeEstimate('Calculating...');
+        setLastProgressUpdate(0);
     };
     window.addEventListener('load', clearBulkUpload);
     return () => window.removeEventListener('load', clearBulkUpload);
@@ -1310,7 +1758,7 @@ function App() {
                     <div className="text-xl font-bold mb-1 dark:text-white">Welcome to Concord</div>
                     <div className="text-gray-500 dark:text-gray-300">Manage all your contracts in one place.</div>
                   </div>
-                  <Button type="primary" icon={<PlusOutlined />}>Create New Contract</Button>
+                    <Button type="primary" icon={<PlusOutlined />}>Create New Contract</Button>
                 </div>
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-4">
                   <Input.Search
@@ -1682,504 +2130,824 @@ function App() {
                         return null;
                       })()}
                       {showBulkReview ? (
-                        <div className="w-full">
-                          {bulkImportCompleted && (
-                            <Alert
-                              message="Import Completed Successfully!"
-                              description={`${Object.values(bulkExtractedData).filter(d => d.status === 'signed').length} signed contracts and ${Object.values(bulkExtractedData).filter(d => d.status === 'template').length} templates have been imported to your document library.`}
-                              type="success"
-                              showIcon
-                              closable
-                              style={{ marginBottom: 16 }}
-                              action={
+                        <div className="w-full space-y-4">
+                                                    {/* Action Header */}
+                          <div className="bg-gray-800/50 backdrop-blur-sm p-4 rounded-lg border border-gray-700">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <h2 className="text-lg font-semibold text-gray-100">Upload Summary</h2>
+                                <p className="text-sm text-gray-400 mt-1">
+                                  Review the analysis results and manage your imported documents
+                                </p>
+                              </div>
                                 <Space>
-                                  <Button size="small" type="primary" onClick={() => setSelectedPage('contracts')}>
-                                    View Contracts
-                                  </Button>
-                                  <Button size="small" onClick={() => {
-                                    // Reset for new import
-                                    setSelectedZipFile(null);
-                                    setBulkUploadDocCount(0);
-                                    setBulkUploadFolderCount(0);
+                                            <Button 
+                                  type="primary" 
+                                  onClick={() => {
+                                    setBulkImportCompleted(true);
+                                    setChatMessages(prev => [...prev, 
+                                      { role: 'assistant', content: 'All documents have been imported successfully!' }
+                                    ]);
+                                    message.success('All documents imported successfully');
+                                  }} 
+                                  disabled={bulkImportCompleted || bulkAnalysisActive}
+                                >
+                                  {bulkImportCompleted ? 'Import Complete' : 'Import All Documents'}
+                                            </Button>
+                                                <Button
+                                            onClick={() => {
+                                    setShowBulkReview(false);
+                                    setShowBulkTree(false);
+                                    setBulkAnalysisActive(false);
                                     setBulkUploadProgress(0);
                                     setBulkUploadTotal(0);
                                     setBulkExtractedData({});
-                                    setShowBulkReview(false);
-                                    setBulkAnalysisProgress(0);
+                                    setSelectedZipFile(null);
+                                    setBulkUploadDocCount(0);
+                                    setBulkUploadFolderCount(0);
                                     setBulkImportCompleted(false);
-                                    setCurrentFolderPath([]);
-                                    setSelectedFiles(new Set());
+                                    setUploadSummary({
+                                      totalDocuments: 0,
+                                      successfulUploads: 0,
+                                      failedUploads: 0,
+                                      failedDetails: []
+                                    });
+                                                                    setSelectedProperties([]);
+                                                                setPropertyValues({});
+                                setShowAIOrganize(false);
+                                setAISuggestedStructure(null);
+                                setDuplicateGroups([]);
+                                setShowDuplicatesOnly(false);
+                                setShowDuplicateModal(false);
+                                setSelectedDuplicateGroup(null);
+                                setUploadStartTime(null);
+                                setAnalysisStartTime(null);
+                                setUploadTimeEstimate('Calculating...');
+                                setAnalysisTimeEstimate('Calculating...');
+                                setLastProgressUpdate(0);
                                     setChatMessages([]);
-                                  }}>
+                                  }}
+                                >
                                     New Import
                                   </Button>
                                 </Space>
-                              }
-                            />
-                          )}
-                          <Tabs 
-                            activeKey={bulkReviewTab}
-                            onChange={(key) => setBulkReviewTab(key as 'table' | 'folders')}
-                            items={[
-                              {
-                                key: 'table',
-                                label: 'Contract Table',
-                                children: (
-                                  <div className="mt-4">
-                                    <div className="mb-4">
-                                      <Alert
-                                        message="Signed Contracts Analysis"
-                                        description={
-                                          bulkAnalysisActive 
-                                            ? `Analyzing documents... ${bulkAnalysisProgress}/${bulkUploadTotal} processed. Found ${Object.values(bulkExtractedData).filter(d => d.status === 'signed').length} signed contracts so far.`
-                                            : `${Object.values(bulkExtractedData).filter(d => d.status === 'signed').length} signed contracts detected out of ${bulkUploadTotal} total documents`
-                                        }
-                                        type={bulkAnalysisActive ? "warning" : "info"}
-                                        showIcon
-                                      />
-                                    </div>
-                                    <Table
-                                      loading={bulkAnalysisActive && bulkAnalysisProgress < bulkUploadTotal}
-                                      dataSource={Object.entries(bulkExtractedData)
-                                        .filter(([_, data]) => data.status === 'signed')
-                                        .map(([fileName, data], index) => ({
-                                          key: index,
-                                          title: fileName,
-                                          parties: data.parties.join(', '),
-                                          effectiveDate: data.dates.effective || '-',
-                                          expirationDate: data.dates.expiry || '-',
-                                          renewalDate: data.dates.renewal || '-',
-                                          agreementCategory: data.agreementCategory,
-                                          documentType: data.docType,
-                                          totalValue: data.totalAgreementValue !== 'N/A' ? data.totalAgreementValue : '-',
-                                          stage: 'Signed',
-                                          status: data.dates.expiry && new Date(data.dates.expiry) < new Date() ? 'Expired' : 'Active'
-                                        }))}
-                                      columns={[
-                                        {
-                                          title: 'Title',
-                                          dataIndex: 'title',
-                                          key: 'title',
-                                          width: 250,
-                                          ellipsis: true,
-                                          render: (text: string) => <span className="font-medium">{text}</span>
-                                        },
-                                        {
-                                          title: 'Parties',
-                                          dataIndex: 'parties',
-                                          key: 'parties',
-                                          width: 250,
-                                          ellipsis: true,
-                                        },
-                                        {
-                                          title: 'Effective Date',
-                                          dataIndex: 'effectiveDate',
-                                          key: 'effectiveDate',
-                                          width: 120,
-                                        },
-                                        {
-                                          title: 'Expiration Date',
-                                          dataIndex: 'expirationDate',
-                                          key: 'expirationDate',
-                                          width: 120,
-                                        },
-                                        {
-                                          title: 'Renewal Date',
-                                          dataIndex: 'renewalDate',
-                                          key: 'renewalDate',
-                                          width: 120,
-                                        },
-                                        {
-                                          title: 'Agreement Category',
-                                          dataIndex: 'agreementCategory',
-                                          key: 'agreementCategory',
-                                          width: 180,
-                                          filters: [...new Set(Object.values(bulkExtractedData).map(d => d.agreementCategory))].map(cat => ({ text: cat, value: cat })),
-                                          onFilter: (value, record) => record.agreementCategory === value,
-                                        },
-                                        {
-                                          title: 'Document Type',
-                                          dataIndex: 'documentType',
-                                          key: 'documentType',
-                                          width: 220,
-                                        },
-                                        {
-                                          title: 'Total Value',
-                                          dataIndex: 'totalValue',
-                                          key: 'totalValue',
-                                          width: 150,
-                                          align: 'right',
-                                          render: (value: string) => (
-                                            <span className={value !== '-' ? 'font-semibold text-green-600' : ''}>{value}</span>
-                                          ),
-                                        },
-                                        {
-                                          title: 'Stage',
-                                          dataIndex: 'stage',
-                                          key: 'stage',
-                                          width: 100,
-                                          render: (stage: string) => (
-                                            <Tag color="green">{stage}</Tag>
-                                          ),
-                                        },
-                                        {
-                                          title: 'Status',
-                                          dataIndex: 'status',
-                                          key: 'status',
-                                          width: 100,
-                                          render: (status: string) => (
-                                            <Tag color={status === 'Active' ? 'blue' : 'red'}>{status}</Tag>
-                                          ),
-                                        },
-                                      ]}
-                                      scroll={{ x: 1700, y: 400 }}
-                                      pagination={{ pageSize: 20 }}
-                                      size="small"
-                                      style={{ 
-                                        background: darkMode ? '#1a1a1a' : '#fff',
-                                        borderRadius: 8,
-                                      }}
-                                    />
-                                    <div className="mt-4 flex justify-between items-center">
-                                      <div className="text-sm text-gray-500">
-                                        Showing {Object.values(bulkExtractedData).filter(d => d.status === 'signed').length} signed contracts
-                                      </div>
-                                      <Button 
-                                        type="default"
-                                        icon={<ExportOutlined />}
-                                        onClick={() => message.info('Export functionality would be implemented here')}
-                                      >
-                                        Export to CSV
-                                      </Button>
-                                    </div>
-                                  </div>
-                                )
-                              },
-                              {
-                                key: 'folders',
-                                label: 'Folder Navigation',
-                                children: (
-                                  <div className="mt-4">
-                                    {/* Header with breadcrumb navigation */}
-                                    <div className="mb-4">
-                                      <div className="flex items-center justify-between mb-3">
-                                        <div className="flex items-center gap-2">
-                                          {/* Breadcrumb navigation */}
-                                          <div className="flex items-center text-sm">
-                                            <Button 
-                                              type="text" 
-                                              size="small"
-                                              icon={<FolderOutlined />}
-                                              onClick={() => setCurrentFolderPath([])}
-                                              className="px-2"
-                                            >
-                                              My Contracts
-                                            </Button>
-                                            {currentFolderPath.map((folder, index) => (
-                                              <React.Fragment key={index}>
-                                                <span className="mx-1 text-gray-400">/</span>
-                                                <Button
-                                                  type="text"
-                                                  size="small"
-                                                  onClick={() => setCurrentFolderPath(currentFolderPath.slice(0, index + 1))}
-                                                  className="px-2"
-                                                >
-                                                  {folder}
-                                                </Button>
-                                              </React.Fragment>
-                                            ))}
-                                          </div>
                                         </div>
+                                      </div>
+
+                                                    {/* Summary Stats - Minimalist */}
+                          <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700/50">
+                            <div className="grid grid-cols-4 gap-8">
+                              <div className="text-center">
+                                <div className="text-3xl font-light text-gray-100">{uploadSummary.totalDocuments}</div>
+                                <div className="text-xs text-gray-500 mt-1 uppercase tracking-wide">Total</div>
+                              </div>
+                              <div className="text-center relative">
+                                <div className="absolute top-0 right-4">
+                                  <DownloadOutlined 
+                                    className="text-gray-600 hover:text-gray-400 cursor-pointer text-xs"
+                                    onClick={() => {
+                                      const successfulDocs = Object.entries(bulkExtractedData)
+                                        .filter(([_, data]) => data)
+                                        .map(([fileName, data]) => ({
+                                          fileName,
+                                          docType: data.docType,
+                                          parties: data.parties.join('; '),
+                                          status: data.status,
+                                          folder: data.suggestedFolder
+                                        }));
+                                      console.log('Download successful uploads CSV:', successfulDocs);
+                                      message.success('Successful uploads CSV ready (check console)');
+                                    }}
+                                  />
+                                </div>
+                                <div className="text-3xl font-light text-green-400">{uploadSummary.successfulUploads}</div>
+                                <div className="text-xs text-gray-500 mt-1 uppercase tracking-wide">Uploaded</div>
+                              </div>
+                              <div className="text-center relative">
+                                <div className="absolute top-0 right-4">
+                                  <DownloadOutlined 
+                                    className="text-gray-600 hover:text-gray-400 cursor-pointer text-xs"
+                                          onClick={() => {
+                                      console.log('Download failed uploads CSV:', uploadSummary.failedDetails);
+                                      message.success('Failed uploads CSV ready (check console)');
+                                    }}
+                                  />
+                                      </div>
+                                <div className="text-3xl font-light" style={{ color: uploadSummary.failedUploads > 0 ? '#ff6b6b' : '#6b7280' }}>
+                                  {uploadSummary.failedUploads}
+                                    </div>
+                                <div className="text-xs text-gray-500 mt-1 uppercase tracking-wide">Failed</div>
+                              </div>
+                              <div className="text-center relative">
+                                <div className="absolute top-0 right-4">
+                                  <DownloadOutlined 
+                                    className="text-gray-600 hover:text-gray-400 cursor-pointer text-xs"
+                                    onClick={() => {
+                                      const duplicatesCsv = duplicateGroups.flatMap(group => 
+                                        group.documents.map(doc => ({
+                                          fileName: doc.fileName,
+                                          docType: doc.data.docType,
+                                          parties: doc.data.parties.join('; '),
+                                          similarity: `${Math.round(group.similarity * 100)}%`,
+                                          groupId: duplicateGroups.indexOf(group) + 1
+                                        }))
+                                      );
+                                      console.log('Download duplicates CSV:', duplicatesCsv);
+                                      message.success('Duplicates CSV ready (check console)');
+                                    }}
+                                  />
+                                      </div>
+                                <div className="text-3xl font-light" style={{ color: duplicateGroups.length > 0 ? '#ffa94d' : '#6b7280' }}>
+                                  {duplicateGroups.reduce((sum, group) => sum + group.documents.filter(d => !d.isExisting).length, 0)}
+                                    </div>
+                                <div className="text-xs text-gray-500 mt-1 uppercase tracking-wide">
+                                  Duplicates{duplicateGroups.length > 0 && ` (${duplicateGroups.length})`}
+                                  </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Duplicates Review Section - Hidden for now */}
+
+                          {/* Failed Uploads - Minimalist */}
+                          {uploadSummary.failedUploads > 0 && (
+                            <div className="bg-red-900/10 border border-red-800/30 rounded-xl p-4">
+                              <div 
+                                className="flex items-center justify-between cursor-pointer"
+                                onClick={() => setShowFailedDetails(!showFailedDetails)}
+                                      >
                                         <div className="flex items-center gap-2">
-                                          {selectedFiles.size > 0 && (
-                                            <span className="text-sm text-gray-500">
-                                              {selectedFiles.size} selected
+                                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                                  <span className="text-sm text-gray-300">Failed Uploads</span>
+                                  <span className="text-xs text-red-400">({uploadSummary.failedUploads})</span>
+                                    </div>
+                                <DownOutlined 
+                                  className="text-gray-500 text-xs transition-transform duration-200"
+                                  style={{ transform: showFailedDetails ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                                />
+                                  </div>
+                              
+                              {showFailedDetails && (
+                                <div className="mt-4 space-y-3">
+                                  {(() => {
+                                    const groupedErrors = uploadSummary.failedDetails.reduce((acc, item) => {
+                                      if (!acc[item.reason]) acc[item.reason] = [];
+                                      acc[item.reason].push(item);
+                                      return acc;
+                                    }, {} as Record<string, typeof uploadSummary.failedDetails>);
+                                    
+                                    return Object.entries(groupedErrors).map(([reason, items]) => (
+                                      <div key={reason} className="pl-4">
+                                        <div className="text-xs text-red-400 font-medium">{reason}</div>
+                                        <div className="text-xs text-gray-500 mt-0.5">{items[0].error}</div>
+                                        <div className="text-xs text-gray-600 mt-1">
+                                          {items.length} file{items.length > 1 ? 's' : ''} affected
+                                        </div>
+                                      </div>
+                                    ));
+                                  })()}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Document Distribution & Folder Organization - Minimalist - TEMPORARILY HIDDEN */}
+                          <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700/50 hidden">
+                            <div className="flex items-center justify-between mb-4">
+                              <h3 className="text-sm font-medium text-gray-300">Document Distribution & Folder Organization</h3>
+                                        <div className="flex items-center gap-2">
+                                <Switch
+                                  checked={showAIOrganize}
+                                  onChange={(checked) => {
+                                    setShowAIOrganize(checked);
+                                  }}
+                                  checkedChildren="AI"
+                                  unCheckedChildren="Manual"
+                                              size="small"
+                                />
+                              </div>
+                            </div>
+                            
+                            {showAIOrganize ? (
+                              // AI Organization View - Hierarchical Structure
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="text-xs text-blue-400">Concord AI Suggested Hierarchy</div>
+                                                <Button
+                                    type="primary"
+                                                  size="small"
+                                    onClick={() => {
+                                      // Apply AI suggestions to all documents that don't have user selections
+                                      const newSelections = { ...userSelectedFolders };
+                                      Object.entries(bulkExtractedData).forEach(([fileName, data]) => {
+                                        if (!newSelections[fileName]) {
+                                          newSelections[fileName] = data.suggestedFolder || 'Uncategorized';
+                                        }
+                                      });
+                                      setUserSelectedFolders(newSelections);
+                                      message.success('AI folder suggestions applied to all documents');
+                                    }}
+                                  >
+                                    Accept Hierarchy
+                                                </Button>
+                                          </div>
+                                
+                                {(() => {
+                                  // Build hierarchical structure from AI suggestions
+                                  const hierarchy: Record<string, { count: number; children: Record<string, { count: number; documents: string[] }> }> = {};
+                                  
+                                  Object.entries(bulkExtractedData).forEach(([fileName, data]) => {
+                                    const folderPath = data.suggestedFolder || 'Uncategorized';
+                                    const parts = folderPath.split('/');
+                                    const mainFolder = parts[0];
+                                    const subFolder = parts.length > 1 ? parts.slice(1).join('/') : '';
+                                    
+                                    if (!hierarchy[mainFolder]) {
+                                      hierarchy[mainFolder] = { count: 0, children: {} };
+                                    }
+                                    hierarchy[mainFolder].count++;
+                                    
+                                    if (subFolder) {
+                                      if (!hierarchy[mainFolder].children[subFolder]) {
+                                        hierarchy[mainFolder].children[subFolder] = { count: 0, documents: [] };
+                                      }
+                                      hierarchy[mainFolder].children[subFolder].count++;
+                                      hierarchy[mainFolder].children[subFolder].documents.push(fileName);
+                                    }
+                                  });
+                                  
+                                  return Object.keys(hierarchy).length > 0 ? (
+                                    <div className="space-y-3">
+                                      {Object.entries(hierarchy)
+                                        .sort((a, b) => b[1].count - a[1].count)
+                                        .map(([mainFolder, data], index) => (
+                                          <div key={index} className="border border-gray-700/50 rounded-lg p-3 bg-gray-700/20">
+                                            <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                                <FolderOutlined className="text-blue-500" />
+                                                <span className="text-sm font-medium text-gray-200">{mainFolder}</span>
+                                              </div>
+                                              <span className="text-xs text-gray-500 bg-gray-700/50 px-2 py-1 rounded">
+                                                {data.count} documents
                                             </span>
-                                          )}
+                                            </div>
+                                            
+                                            {Object.keys(data.children).length > 0 && (
+                                              <div className="ml-6 space-y-1 border-l border-gray-700/50 pl-3">
+                                                {Object.entries(data.children).map(([subFolder, subData], subIndex) => (
+                                                  <div key={subIndex} className="flex items-center justify-between py-1">
+                                                    <div className="flex items-center gap-2">
+                                                      <FolderOutlined className="text-gray-500 text-xs" />
+                                                      <span className="text-xs text-gray-300">{subFolder}</span>
+                                                    </div>
+                                                    <span className="text-xs text-gray-500">{subData.count}</span>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        ))}
+                                    </div>
+                                  ) : (
+                                    <div className="text-center py-4 text-gray-500 text-sm">
+                                      No hierarchy suggestions available
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            ) : (
+                              // Manual ZIP Folder Structure View
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="text-xs text-gray-400">ZIP File Structure</div>
                                           <Button
-                                            type={bulkImportCompleted ? "default" : "primary"}
-                                            icon={bulkImportCompleted ? <CheckOutlined style={{ color: '#52c41a' }} /> : <CheckOutlined />}
+                                    type="default"
+                                    size="small"
                                             onClick={() => {
-                                              if (!bulkImportCompleted) {
-                                                message.success('All documents imported and organized successfully!');
-                                                setBulkImportCompleted(true);
-                                              }
-                                            }}
-                                            disabled={bulkImportCompleted}
+                                      // Show repository folder selection modal
+                                      setShowFolderModal(true);
+                                    }}
                                           >
-                                            {bulkImportCompleted ? 'Documents Imported' : 'Import All Documents'}
+                                    Select Folder
+                                          </Button>
+                                    </div>
+                                    
+                                            {(() => {
+                                  // Build ZIP folder structure from uploaded documents
+                                  const zipStructure: Record<string, string[]> = {};
+                                  
+                                              Object.entries(bulkExtractedData).forEach(([fileName, data]) => {
+                                    // Extract original folder path from fileName or originalPath
+                                    const originalPath = data.originalPath || fileName;
+                                    const parts = originalPath.split('/');
+                                    
+                                    if (parts.length > 1) {
+                                      // Has folder structure
+                                      const folderPath = parts.slice(0, -1).join('/');
+                                      const file = parts[parts.length - 1];
+                                      
+                                      if (!zipStructure[folderPath]) {
+                                        zipStructure[folderPath] = [];
+                                      }
+                                      zipStructure[folderPath].push(file);
+                                    } else {
+                                      // Root level file
+                                      if (!zipStructure['Root']) {
+                                        zipStructure['Root'] = [];
+                                      }
+                                      zipStructure['Root'].push(fileName);
+                                                  }
+                                                });
+                                                
+                                  return (
+                                    <div className="space-y-3">
+                                      <div className="text-xs text-gray-500 mb-2">Original ZIP structure:</div>
+                                      <div className="bg-gray-700/20 rounded-lg p-3 max-h-48 overflow-y-auto">
+                                        {Object.entries(zipStructure)
+                                          .sort((a, b) => a[0].localeCompare(b[0]))
+                                          .map(([folderPath, files], index) => {
+                                            const parts = folderPath.split('/');
+                                            const indent = folderPath === 'Root' ? 0 : (parts.length - 1) * 16;
+                                            const displayName = folderPath === 'Root' ? '📁 Root' : parts[parts.length - 1];
+                                            
+                                            return (
+                                              <div key={index} className="mb-2">
+                                                <div className="flex items-center gap-2 py-1" style={{ marginLeft: `${indent}px` }}>
+                                                  <FolderOutlined className="text-blue-500 text-sm" />
+                                                  <span className="text-sm font-medium text-gray-200">{displayName}</span>
+                                                  <span className="text-xs text-gray-500 bg-gray-700/50 px-2 py-0.5 rounded">
+                                                    {files.length} files
+                                                  </span>
+                                                </div>
+                                                
+                                                {/* Show files in folder */}
+                                                <div className="ml-6 space-y-0.5" style={{ marginLeft: `${indent + 24}px` }}>
+                                                  {files.slice(0, 3).map((file, fileIndex) => (
+                                                    <div key={fileIndex} className="flex items-center gap-2 py-0.5">
+                                                      <FileTextOutlined className="text-gray-500 text-xs" />
+                                                      <span className="text-xs text-gray-400 truncate max-w-[250px]" title={file}>
+                                                        {file}
+                                                      </span>
+                                                    </div>
+                                                  ))}
+                                                  {files.length > 3 && (
+                                                    <div className="text-xs text-gray-500 ml-4">
+                                                      +{files.length - 3} more files...
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                      </div>
+                                      
+                                      <div className="bg-gray-700/30 rounded-lg p-3 border border-gray-600/50">
+                                        <div className="flex items-center justify-between mb-2">
+                                          <div className="text-xs text-gray-400">Destination Selection</div>
+                                          <span className="text-xs text-gray-500">
+                                            {Object.keys(userSelectedFolders).length > 0 
+                                              ? `${Object.keys(userSelectedFolders).length} documents configured`
+                                              : 'No destination selected'
+                                            }
+                                          </span>
+                                        </div>
+                                        
+                                        <div className="flex items-center justify-between p-2 bg-gray-600/30 rounded">
+                                          <div className="flex items-center gap-2">
+                                            <FolderOutlined className="text-yellow-500" />
+                                            <span className="text-sm text-gray-300">
+                                              {Object.keys(userSelectedFolders).length > 0 
+                                                ? `Selected: ${Object.values(userSelectedFolders)[0] || 'Multiple folders'}`
+                                                : 'Choose destination folder'
+                                              }
+                                            </span>
+                                          </div>
+                                          <Button
+                                            size="small"
+                                            type="primary"
+                                            onClick={() => {
+                                              setShowFolderModal(true);
+                                            }}
+                                          >
+                                            Select Folder
                                           </Button>
                                         </div>
                                       </div>
                                     </div>
-                                    
-                                    {/* Modern Google Drive-like folder view */}
-                                    <div className="border rounded-lg overflow-hidden" style={{ 
-                                      background: darkMode ? '#1a1a1a' : '#ffffff',
-                                      minHeight: 500
-                                    }}>
-                                      {/* Toolbar */}
-                                      <div className="border-b px-4 py-2" style={{ borderColor: darkMode ? '#333' : '#e0e0e0' }}>
-                                        <div className="flex items-center justify-between">
-                                          <div className="text-sm text-gray-500">
-                                            {(() => {
-                                              // Build folder structure first to count items
-                                              const folderStructure: Record<string, any> = {};
-                                              Object.entries(bulkExtractedData).forEach(([fileName, data]) => {
-                                                const folderPath = data.suggestedFolder;
-                                                const parts = folderPath.split('/');
-                                                
-                                                let current = folderStructure;
-                                                parts.forEach((part, index) => {
-                                                  if (!current[part]) {
-                                                    current[part] = { _files: [], _subfolders: {} };
-                                                  }
-                                                  if (index < parts.length - 1) {
-                                                    current = current[part]._subfolders;
-                                                  }
-                                                });
-                                                
-                                                const deepestFolder = parts.reduce((acc, part, index) => {
-                                                  if (index === 0) return acc[part];
-                                                  return acc._subfolders[part];
-                                                }, folderStructure);
-                                                deepestFolder._files.push({ fileName, data });
-                                              });
-                                              
-                                              // Get current folder
-                                              let currentFolder = folderStructure;
-                                              for (const folder of currentFolderPath) {
-                                                currentFolder = currentFolder[folder]?._subfolders || {};
-                                              }
-                                              
-                                              const folderCount = Object.entries(currentFolder)
-                                                .filter(([_, content]: [string, any]) => content._subfolders || content._files).length;
-                                              const fileCount = (() => {
-                                                if (currentFolderPath.length === 0) {
-                                                  return Object.entries(bulkExtractedData)
-                                                    .filter(([_, data]) => !data.suggestedFolder.includes('/')).length;
-                                                } else {
-                                                  let folder = folderStructure;
-                                                  for (let i = 0; i < currentFolderPath.length; i++) {
-                                                    const pathPart = currentFolderPath[i];
-                                                    if (i === currentFolderPath.length - 1) {
-                                                      return folder[pathPart]?._files?.length || 0;
-                                                    } else {
-                                                      folder = folder[pathPart]?._subfolders || {};
-                                                    }
-                                                  }
-                                                  return 0;
-                                                }
-                                              })();
-                                              return `${folderCount} folders, ${fileCount} files`;
+                                  );
                                             })()}
                                           </div>
+                            )}
+                          </div>
+
+                          {/* Document Status, Stage, Types & Agreement Category Row - Minimalist */}
+                          <div className="grid grid-cols-4 gap-4">
+                            {/* Document Status */}
+                            <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700/50">
+                              <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-sm font-medium text-gray-300">Document Status</h3>
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  className="text-xs text-gray-500 hover:text-gray-300 p-0"
+                                  onClick={() => message.info('View all statuses')}
+                                >
+                                  View more
+                                </Button>
+                              </div>
+                              {(() => {
+                                const signedDocs = Object.values(bulkExtractedData).filter(doc => doc.status === 'signed');
+                                const activeDocs = signedDocs.filter(doc => !doc.dates.expiry || new Date(doc.dates.expiry) >= new Date());
+                                const expiredDocs = signedDocs.filter(doc => doc.dates.expiry && new Date(doc.dates.expiry) < new Date());
+                                
+                                return (
+                                  <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
                                           <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 bg-green-500 rounded-full" />
+                                        <span className="text-sm text-gray-400">Active</span>
+                                        </div>
+                                      <span className="text-sm font-medium text-gray-200">{activeDocs.length}</span>
+                                    </div>
+                                        <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 bg-gray-500 rounded-full" />
+                                        <span className="text-sm text-gray-400">Expired</span>
+                                      </div>
+                                      <span className="text-sm font-medium text-gray-200">{expiredDocs.length}</span>
+                                    </div>
+                                  </div>
+                                );
+                                            })()}
+                                          </div>
+                            
+                                                        {/* Document Stage */}
+                            <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700/50">
+                              <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-sm font-medium text-gray-300">Document Stage</h3>
                                             <Button 
                                               type="text" 
                                               size="small"
-                                              icon={<SettingOutlined />}
-                                              className="px-2"
+                                  className="text-xs text-gray-500 hover:text-gray-300 p-0"
+                                  onClick={() => message.info('View all stages')}
                                             >
-                                              View options
+                                  View more
                                             </Button>
                                           </div>
+                              {(() => {
+                                const templateCount = Object.values(bulkExtractedData).filter(doc => doc.status === 'template').length;
+                                const signedCount = Object.values(bulkExtractedData).filter(doc => doc.status === 'signed').length;
+                                        
+                                return (
+                                  <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm text-gray-400">Templates</span>
+                                      <span className="text-sm font-medium text-gray-200">{templateCount}</span>
                                         </div>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm text-gray-400">Signed</span>
+                                      <span className="text-sm font-medium text-gray-200">{signedCount}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+
+                            {/* Document Types */}
+                            <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700/50">
+                              <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-sm font-medium text-gray-300">Document Types</h3>
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  className="text-xs text-gray-500 hover:text-gray-300 p-0"
+                                  onClick={() => message.info('View all types')}
+                                >
+                                  View more
+                                </Button>
                                       </div>
                                       {(() => {
-                                        // Build folder structure
-                                        const folderStructure: Record<string, any> = {};
-                                        
-                                        Object.entries(bulkExtractedData).forEach(([fileName, data]) => {
-                                          const folderPath = data.suggestedFolder;
-                                          const parts = folderPath.split('/');
-                                          
-                                          let current = folderStructure;
-                                          parts.forEach((part, index) => {
-                                            if (!current[part]) {
-                                              current[part] = { _files: [], _subfolders: {} };
-                                            }
-                                            if (index < parts.length - 1) {
-                                              current = current[part]._subfolders;
-                                            }
-                                          });
-                                          
-                                          // Add file to the deepest folder
-                                          const deepestFolder = parts.reduce((acc, part, index) => {
-                                            if (index === 0) return acc[part];
-                                            return acc._subfolders[part];
-                                          }, folderStructure);
-                                          deepestFolder._files.push({ fileName, data });
-                                        });
-                                        
-                                        // Get current folder content
-                                        let currentFolder = folderStructure;
-                                        for (const folder of currentFolderPath) {
-                                          currentFolder = currentFolder[folder]?._subfolders || {};
-                                        }
-                                        
-                                        const folders = Object.entries(currentFolder)
-                                          .filter(([_, content]: [string, any]) => content._subfolders || content._files)
-                                          .map(([name, content]: [string, any]) => ({
-                                            name,
-                                            isFolder: true,
-                                            fileCount: content._files?.length || 0,
-                                            subfolderCount: Object.keys(content._subfolders || {}).length
-                                          }));
-                                        
-                                        const files = (() => {
-                                          if (currentFolderPath.length === 0) {
-                                            // Show files that are not in any subfolder (root level files)
-                                            return Object.entries(bulkExtractedData)
-                                              .filter(([_, data]) => !data.suggestedFolder.includes('/'))
-                                              .map(([fileName, data]) => ({ fileName, data }));
-                                          } else {
-                                            // Navigate to the current folder
-                                            let folder = folderStructure;
-                                            for (let i = 0; i < currentFolderPath.length; i++) {
-                                              const pathPart = currentFolderPath[i];
-                                              if (i === currentFolderPath.length - 1) {
-                                                // Last part - return files from this folder
-                                                return folder[pathPart]?._files || [];
-                                              } else {
-                                                // Navigate deeper
-                                                folder = folder[pathPart]?._subfolders || {};
-                                              }
-                                            }
-                                            return [];
-                                          }
-                                        })();
+                                const typeCounts = Object.values(bulkExtractedData).reduce((acc, doc) => {
+                                  acc[doc.docType] = (acc[doc.docType] || 0) + 1;
+                                  return acc;
+                                }, {} as Record<string, number>);
+                                
+                                const topTypes = Object.entries(typeCounts)
+                                  .sort((a, b) => b[1] - a[1])
+                                  .slice(0, 4);
+                                
+                                return (
+                                  <div className="space-y-2">
+                                    {topTypes.map(([type, count]) => (
+                                      <div key={type} className="flex items-center justify-between">
+                                        <span className="text-sm text-gray-400 truncate pr-2">{type}</span>
+                                        <span className="text-sm font-medium text-gray-200">{count}</span>
+                                      </div>
+                                    ))}
+                                    {Object.keys(typeCounts).length > 4 && (
+                                      <div className="text-xs text-gray-500 pt-1">
+                                        +{Object.keys(typeCounts).length - 4} more types
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+
+                            {/* Agreement Category */}
+                            <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700/50">
+                              <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-sm font-medium text-gray-300">Agreement Category</h3>
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  className="text-xs text-gray-500 hover:text-gray-300 p-0"
+                                  onClick={() => message.info('View all categories')}
+                                >
+                                  View more
+                                </Button>
+                              </div>
+                              {(() => {
+                                // Extract agreement categories from document data
+                                const categoryCounts = Object.values(bulkExtractedData).reduce((acc, doc) => {
+                                  // Extract category from document type or create categories based on common patterns
+                                  let category = 'General';
+                                  
+                                  if (doc.docType.toLowerCase().includes('employment') || doc.docType.toLowerCase().includes('hr')) {
+                                    category = 'Employment';
+                                  } else if (doc.docType.toLowerCase().includes('nda') || doc.docType.toLowerCase().includes('confidentiality')) {
+                                    category = 'Confidentiality';
+                                  } else if (doc.docType.toLowerCase().includes('service') || doc.docType.toLowerCase().includes('vendor')) {
+                                    category = 'Service';
+                                  } else if (doc.docType.toLowerCase().includes('license') || doc.docType.toLowerCase().includes('intellectual')) {
+                                    category = 'Licensing';
+                                  } else if (doc.docType.toLowerCase().includes('sale') || doc.docType.toLowerCase().includes('purchase')) {
+                                    category = 'Commercial';
+                                  } else if (doc.docType.toLowerCase().includes('partnership') || doc.docType.toLowerCase().includes('joint')) {
+                                    category = 'Partnership';
+                                  }
+                                  
+                                  acc[category] = (acc[category] || 0) + 1;
+                                  return acc;
+                                }, {} as Record<string, number>);
+                                
+                                const topCategories = Object.entries(categoryCounts)
+                                  .sort((a, b) => b[1] - a[1])
+                                  .slice(0, 4);
                                         
                                                                                   return (
-                                            <div>
-                                              {/* Table headers */}
-                                              <div className="px-4 py-2 border-b flex items-center justify-between text-xs font-medium uppercase tracking-wider" 
-                                                style={{ 
-                                                  borderColor: darkMode ? '#333' : '#e0e0e0',
-                                                  color: darkMode ? '#9ca3af' : '#6b7280'
-                                                }}>
-                                                <div className="flex items-center gap-3">
-                                                  <Checkbox 
-                                                    checked={files.length > 0 && selectedFiles.size === files.length}
-                                                    indeterminate={selectedFiles.size > 0 && selectedFiles.size < files.length}
-                                                    onChange={(e) => {
-                                                      if (e.target.checked) {
-                                                        setSelectedFiles(new Set(files.map((f: any) => f.fileName)));
-                                                      } else {
-                                                        setSelectedFiles(new Set());
-                                                      }
-                                                    }}
-                                                    style={{ marginLeft: 4 }}
-                                                  />
-                                                  <div style={{ width: 20 }}></div>
-                                                  <div>Name</div>
+                                  <div className="space-y-2">
+                                    {topCategories.map(([category, count]) => (
+                                      <div key={category} className="flex items-center justify-between">
+                                        <span className="text-sm text-gray-400 truncate pr-2">{category}</span>
+                                        <span className="text-sm font-medium text-gray-200">{count}</span>
                                                 </div>
-                                                <div className="flex items-center gap-8">
-                                                  <div style={{ width: 80 }}>Status</div>
-                                                  <div style={{ width: 100 }}>Value</div>
-                                                  <div style={{ width: 100 }}>Date</div>
+                                    ))}
+                                    {Object.keys(categoryCounts).length > 4 && (
+                                      <div className="text-xs text-gray-500 pt-1">
+                                        +{Object.keys(categoryCounts).length - 4} more categories
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                                                 </div>
                                               </div>
                                               
-                                              {/* List view of folders and files */}
-                                              <div className="divide-y" style={{ borderColor: darkMode ? '#333' : '#e0e0e0' }}>
-                                                {/* Folders */}
-                                                {folders.map(({ name, fileCount, subfolderCount }) => (
-                                                  <div
-                                                    key={name}
-                                                    onClick={() => setCurrentFolderPath([...currentFolderPath, name])}
-                                                    className="group cursor-pointer px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-150 flex items-center justify-between"
-                                                  >
+                          {/* Third Parties - Minimalist */}
+                          <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700/50">
+                            <div className="flex items-center justify-between mb-4">
+                              <h3 className="text-sm font-medium text-gray-300">Third Parties</h3>
                                                     <div className="flex items-center gap-3">
-                                                      <div style={{ width: 24 }}></div>
-                                                      <FolderOutlined style={{ fontSize: 20, color: '#1890ff' }} />
-                                                      <div>
-                                                        <div className="font-medium text-sm group-hover:text-blue-600">{name}</div>
-                                                        <div className="text-xs text-gray-500">
-                                                          {fileCount > 0 && `${fileCount} files`}
-                                                          {fileCount > 0 && subfolderCount > 0 && ', '}
-                                                          {subfolderCount > 0 && `${subfolderCount} folders`}
+                                <span className="text-xs text-gray-500">
+                                  {(() => {
+                                    const uniqueParties = new Set(Object.values(bulkExtractedData).flatMap(d => d.parties));
+                                    return uniqueParties.size;
+                                  })()} unique
+                                </span>
+                                <Button 
+                                  type="text" 
+                                  size="small"
+                                  className="text-xs text-gray-500 hover:text-gray-300 p-0"
+                                  onClick={() => message.info('View all parties')}
+                                >
+                                  View more
+                                </Button>
                                                         </div>
                                                       </div>
+                            <div className="space-y-2">
+                              {(() => {
+                                const partyCounts = Object.values(bulkExtractedData).reduce((acc, doc) => {
+                                  doc.parties.forEach(party => {
+                                    if (!acc[party]) acc[party] = [];
+                                    acc[party].push(doc.docType);
+                                  });
+                                  return acc;
+                                }, {} as Record<string, string[]>);
+                                
+                                const topParties = Object.entries(partyCounts)
+                                  .sort((a, b) => b[1].length - a[1].length)
+                                  .slice(0, 5);
+                                
+                                return topParties.map(([party, docTypes]) => (
+                                  <div key={party} className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-400 truncate pr-2">{party}</span>
+                                    <span className="text-sm font-medium text-gray-200">{docTypes.length}</span>
                                                     </div>
-                                                    <RightOutlined className="text-gray-400 text-xs" />
+                                ));
+                              })()}
+                              {(() => {
+                                const uniqueParties = new Set(Object.values(bulkExtractedData).flatMap(d => d.parties));
+                                return uniqueParties.size > 5 ? (
+                                  <div className="text-xs text-gray-500 pt-1">
+                                    +{uniqueParties.size - 5} more parties
                                                   </div>
-                                                ))}
-                                                
-                                                {/* Files */}
-                                                {files.map(({ fileName, data }: any) => (
-                                                  <div
-                                                    key={fileName}
-                                                    className="group cursor-pointer px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-150"
-                                                    style={{
-                                                      background: selectedFiles.has(fileName) ? (darkMode ? 'rgba(24, 144, 255, 0.1)' : 'rgba(24, 144, 255, 0.05)') : 'transparent'
-                                                    }}
+                                ) : null;
+                              })()}
+                            </div>
+                          </div>
+
+                          {/* Repository Folder Selection Modal */}
+                          <Modal
+                            title="Select Repository Folder"
+                            open={showFolderModal}
+                            onCancel={() => {
+                              setShowFolderModal(false);
+                              setSelectedDocumentForFolder(null);
+                            }}
+                            footer={null}
+                            width={700}
+                            className="folder-modal"
+                          >
+                            <div className="space-y-4">
+                              {selectedDocumentForFolder ? (
+                                // Single document folder selection from repository
+                                <div>
+                                  <div className="text-sm text-gray-300 mb-4">
+                                    Select repository folder for: <span className="font-medium">{selectedDocumentForFolder}</span>
+                                  </div>
+                                  
+                                  {(() => {
+                                    // Repository folder structure with hierarchy
+                                    const repositoryStructure = {
+                                      'Documents': {
+                                        'Contracts': ['Active', 'Templates', 'Archived'],
+                                        'Legal': ['NDAs', 'Compliance', 'Policies'],
+                                        'Finance': ['Invoices', 'Reports', 'Budgets'],
+                                        'HR': ['Policies', 'Employment', 'Training']
+                                      },
+                                      'Projects': {
+                                        'ProjectA': ['Contracts', 'Documents', 'Reports'],
+                                        'ProjectB': ['Legal', 'Finance', 'Deliverables']
+                                      },
+                                      'Archive': {
+                                        '2023': ['Contracts', 'Legal', 'Finance'],
+                                        '2024': ['Contracts', 'Legal', 'Finance']
+                                      }
+                                    };
+                                    
+                                    return (
+                                      <div className="space-y-2 max-h-96 overflow-y-auto">
+                                        {Object.entries(repositoryStructure).map(([mainFolder, subFolders]) => (
+                                          <div key={mainFolder} className="border border-gray-700 rounded-lg">
+                                            {/* Main folder */}
+                                            <div 
+                                              className="flex items-center justify-between p-3 hover:bg-gray-700/30 cursor-pointer border-b border-gray-700/50"
+                                              onClick={() => {
+                                                setUserSelectedFolders(prev => ({
+                                                  ...prev,
+                                                  [selectedDocumentForFolder]: mainFolder
+                                                }));
+                                                message.success(`Folder set to ${mainFolder}`);
+                                                setShowFolderModal(false);
+                                                setSelectedDocumentForFolder(null);
+                                              }}
+                                            >
+                                                      <div className="flex items-center gap-3">
+                                                <FolderOutlined className="text-blue-500" />
+                                                <span className="text-gray-200 font-medium">{mainFolder}</span>
+                                                        </div>
+                                              {userSelectedFolders[selectedDocumentForFolder] === mainFolder && (
+                                                <CheckOutlined className="text-green-500" />
+                                              )}
+                                                      </div>
+                                            
+                                            {/* Sub folders */}
+                                            <div className="p-2">
+                                              {Object.entries(subFolders).map(([subFolder, subSubFolders]) => (
+                                                <div key={subFolder} className="ml-4">
+                                                  <div 
+                                                    className="flex items-center justify-between p-2 hover:bg-gray-700/20 cursor-pointer rounded"
                                                     onClick={() => {
-                                                      const newSelected = new Set(selectedFiles);
-                                                      if (newSelected.has(fileName)) {
-                                                        newSelected.delete(fileName);
-                                                      } else {
-                                                        newSelected.add(fileName);
-                                                      }
-                                                      setSelectedFiles(newSelected);
+                                                      const fullPath = `${mainFolder}/${subFolder}`;
+                                                      setUserSelectedFolders(prev => ({
+                                                        ...prev,
+                                                        [selectedDocumentForFolder]: fullPath
+                                                      }));
+                                                      message.success(`Folder set to ${fullPath}`);
+                                                      setShowFolderModal(false);
+                                                      setSelectedDocumentForFolder(null);
                                                     }}
                                                   >
-                                                    <div className="flex items-center justify-between">
-                                                      <div className="flex items-center gap-3">
-                                                        <Checkbox 
-                                                          checked={selectedFiles.has(fileName)}
-                                                          onClick={(e) => e.stopPropagation()}
-                                                        />
-                                                        <FileTextOutlined style={{ fontSize: 20, color: '#52c41a' }} />
-                                                        <div>
-                                                          <div className="font-medium text-sm group-hover:text-green-600">{fileName}</div>
-                                                          <div className="text-xs text-gray-500">{data.docType} • {data.parties[0]}</div>
+                                                    <div className="flex items-center gap-2">
+                                                      <FolderOutlined className="text-gray-500 text-sm" />
+                                                      <span className="text-gray-300 text-sm">{subFolder}</span>
                                                         </div>
+                                                    {userSelectedFolders[selectedDocumentForFolder] === `${mainFolder}/${subFolder}` && (
+                                                      <CheckOutlined className="text-green-500" />
+                                                    )}
+                                                        </div>
+                                                  
+                                                  {/* Sub-sub folders */}
+                                                  <div className="ml-6 space-y-1">
+                                                    {(subSubFolders as string[]).map(subSubFolder => {
+                                                      const fullPath = `${mainFolder}/${subFolder}/${subSubFolder}`;
+                                                      return (
+                                                        <div 
+                                                          key={subSubFolder}
+                                                          className="flex items-center justify-between p-1 hover:bg-gray-700/20 cursor-pointer rounded text-xs"
+                                                          onClick={() => {
+                                                            setUserSelectedFolders(prev => ({
+                                                              ...prev,
+                                                              [selectedDocumentForFolder]: fullPath
+                                                            }));
+                                                            message.success(`Folder set to ${fullPath}`);
+                                                            setShowFolderModal(false);
+                                                            setSelectedDocumentForFolder(null);
+                                                          }}
+                                                        >
+                                                          <div className="flex items-center gap-2">
+                                                            <FolderOutlined className="text-gray-500 text-xs" />
+                                                            <span className="text-gray-400">{subSubFolder}</span>
+                                                        </div>
+                                                          {userSelectedFolders[selectedDocumentForFolder] === fullPath && (
+                                                            <CheckOutlined className="text-green-500" />
+                                                          )}
                                                       </div>
-                                                      <div className="flex items-center gap-8 text-xs">
-                                                        <div style={{ width: 80 }}>
-                                                          <Tag color="green" style={{ fontSize: '11px', margin: 0 }}>{data.status}</Tag>
-                                                        </div>
-                                                        <div style={{ width: 100 }} className="text-green-600 font-medium">
-                                                          {data.totalAgreementValue !== 'N/A' ? data.totalAgreementValue : '-'}
-                                                        </div>
-                                                        <div style={{ width: 100 }} className="text-gray-500">
-                                                          {data.dates.effective || '-'}
-                                                        </div>
-                                                      </div>
+                                                      );
+                                                    })}
                                                     </div>
                                                   </div>
                                                 ))}
                                               </div>
-                                              
-                                              {/* Empty state */}
-                                              {folders.length === 0 && files.length === 0 && (
-                                                <div className="text-center py-16 text-gray-500">
-                                                  <FolderOpenOutlined style={{ fontSize: 64, marginBottom: 16, opacity: 0.3 }} />
-                                                  <div>This folder is empty</div>
+                                          </div>
+                                        ))}
+                                        
+                                        <div className="pt-2 border-t border-gray-700">
+                                          <Button
+                                            type="dashed"
+                                            block
+                                            onClick={() => {
+                                              const customFolder = prompt('Enter custom folder path (e.g., Documents/NewFolder):');
+                                              if (customFolder) {
+                                                setUserSelectedFolders(prev => ({
+                                                  ...prev,
+                                                  [selectedDocumentForFolder]: customFolder
+                                                }));
+                                                message.success(`Custom folder created: ${customFolder}`);
+                                                setShowFolderModal(false);
+                                                setSelectedDocumentForFolder(null);
+                                              }
+                                            }}
+                                          >
+                                            + Create New Folder in Repository
+                                          </Button>
                                                 </div>
-                                              )}
                                             </div>
                                           );
                                       })()}
                                     </div>
-                                    
-                                    <Alert
-                                      message="AI-Powered Organization"
-                                      description={
-                                        bulkAnalysisActive
-                                          ? `AI is organizing documents... ${bulkAnalysisProgress}/${bulkUploadTotal} analyzed into ${new Set(Object.values(bulkExtractedData).map(d => d.suggestedFolder)).size} folders.`
-                                          : `Documents have been automatically categorized into ${new Set(Object.values(bulkExtractedData).map(d => d.suggestedFolder)).size} folders based on their content, type, and status.`
-                                      }
-                                      type={bulkAnalysisActive ? "info" : "success"}
-                                      showIcon
-                                      style={{ marginTop: 16 }}
-                                    />
+                              ) : (
+                                // Bulk folder management with repository structure
+                                <div>
+                                  <div className="text-sm text-gray-300 mb-4">Browse repository and assign folders to documents:</div>
+                                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                                    {Object.entries(bulkExtractedData).map(([fileName, data], index) => (
+                                      <div key={index} className="flex items-center justify-between p-2 border border-gray-700 rounded">
+                                        <div className="flex-1 min-w-0">
+                                          <div className="text-sm text-gray-300 truncate" title={fileName}>
+                                            {fileName}
                                   </div>
-                                )
-                              }
-                            ]}
-                          />
+                                          <div className="text-xs text-gray-500">
+                                            Target: {userSelectedFolders[fileName] || 'Not selected'}
+                                          </div>
+                                        </div>
+                                        <Button
+                                          size="small"
+                                          onClick={() => {
+                                            setSelectedDocumentForFolder(fileName);
+                                          }}
+                                        >
+                                          Select Folder
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </Modal>
+
                         </div>
                       ) : showBulkTree ? (
                         <Card
@@ -2626,6 +3394,81 @@ function App() {
                   </div>
                 </Card>
               </div>
+            </Modal>
+            
+            {/* Duplicate Comparison Modal */}
+            <Modal
+              title="Document Comparison"
+              open={showDuplicateModal}
+              onCancel={() => {
+                setShowDuplicateModal(false);
+                setSelectedDuplicateGroup(null);
+              }}
+              width={900}
+              footer={[
+                <Button key="cancel" onClick={() => setShowDuplicateModal(false)}>
+                  Close
+                </Button>
+              ]}
+            >
+              {selectedDuplicateGroup !== null && duplicateGroups[selectedDuplicateGroup] && (
+                <div>
+                  <Alert
+                    message={`${Math.round(duplicateGroups[selectedDuplicateGroup].similarity * 100)}% Similarity Detected`}
+                    description="Review the documents below to decide how to handle this duplicate."
+                    type="warning"
+                    showIcon
+                    className="mb-4"
+                  />
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    {duplicateGroups[selectedDuplicateGroup].documents.map((doc, index) => (
+                      <div key={index} className="border rounded-lg p-4">
+                        <div className="mb-2">
+                          <strong>{doc.isExisting ? 'Existing Document' : 'New Upload'}</strong>
+                          {doc.isExisting && <Tag color="blue" className="ml-2">In System</Tag>}
+                        </div>
+                        <Divider className="my-2" />
+                        
+                        <div className="space-y-2 text-sm">
+                          <div>
+                            <strong>File Name:</strong> {doc.fileName}
+                          </div>
+                          <div>
+                            <strong>Document Type:</strong> {doc.data.docType}
+                          </div>
+                          <div>
+                            <strong>Parties:</strong> {doc.data.parties?.join(', ') || 'N/A'}
+                          </div>
+                          <div>
+                            <strong>Effective Date:</strong> {doc.data.dates?.effective || 'N/A'}
+                          </div>
+                          <div>
+                            <strong>Expiry Date:</strong> {doc.data.dates?.expiry || 'N/A'}
+                          </div>
+                          <div>
+                            <strong>Status:</strong> <Tag>{doc.data.status || 'Unknown'}</Tag>
+                          </div>
+                          {doc.data.suggestedFolder && (
+                            <div>
+                              <strong>Folder:</strong> {doc.data.suggestedFolder}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                                                      <div className="mt-4 p-3 bg-gray-800/50 rounded border border-gray-700">
+                    <strong>Recommended Action:</strong>
+                    {duplicateGroups[selectedDuplicateGroup].documents.some(d => d.isExisting) ? (
+                      <span className="ml-2">Replace existing document if this is an updated version</span>
+                    ) : (
+                      <span className="ml-2">Keep both if they are different versions or skip if truly duplicate</span>
+                    )}
+                  </div>
+                </div>
+              )}
             </Modal>
           </Content>
         </Layout>
